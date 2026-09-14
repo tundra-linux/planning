@@ -22,7 +22,7 @@ What Tundra is and where it is going: [`PLAN.md`](docs/PLAN.md). Rules for worki
 ```
 tundra-linux/
   planning/       this repo — docs/ holds the plan and the three phase documents
-  tundra-pilot/   Phase 1 artifacts — the configuration tree in PHASE1.md P1-D12
+  tundra-pilot/   Phase 1 artifacts — the configuration tree in PHASE1.md P1-D24
                   (empty as of 2026-09-14)
 ```
 

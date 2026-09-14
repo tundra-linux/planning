@@ -115,7 +115,7 @@ and built `aquamarine`; that took a team.
 
 | Compositor | Window model | Alpine v3.24 | Notes |
 |---|---|---|---|
-| **labwc** 0.20.0 | Stacking, Openbox-like | community | The only packaged stacking option. Behavioural match for `P1-D02` |
+| **labwc** 0.20.0 | Stacking, Openbox-like | community | The only packaged stacking option. Behavioural match for `P1-D04` |
 | **MangoWM** 0.17.0 | dwm-style tags and layouts | **edge** community, built 2026-09-12 | dwl fork, stayed small, builds in seconds. Ships `mangobar`. Animations, blur, shadows via scenefx |
 | **niri** 25.11 | Scrollable tiling | community | Rust on Smithay. Wrong window model, useful as proof the Rust path ships |
 | **dwl** | dwm-style tiling | **not packaged** | The suckless reference, absent from Alpine entirely |
@@ -288,7 +288,7 @@ Acceptance criteria, not runnable gates. There is nothing to run them against ye
 
   | Path | Gets you | Costs you |
   |---|---|---|
-  | **Build on MangoWM** (dwl fork, C, wlroots) | Least work by a distance. Small, actively maintained, `mangobar` already exists as a starting point for the bar. Matches `P3-D01`'s size exactly | dwm-shaped: tags, layouts, tiling — the wrong model for `P1-D02`. Its scenefx blur and shadows pull against the restraint. In `edge`, so it needs v3.25+ or a slot in the `P2-D15` overlay cap |
+  | **Build on MangoWM** (dwl fork, C, wlroots) | Least work by a distance. Small, actively maintained, `mangobar` already exists as a starting point for the bar. Matches `P3-D01`'s size exactly | dwm-shaped: tags, layouts, tiling — the wrong model for `P1-D04`. Its scenefx blur and shadows pull against the restraint. In `edge`, so it needs v3.25+ or a slot in the `P2-D15` overlay cap |
   | **Build on labwc** (C, wlroots) | The only packaged stacking model, so the behaviour is right without a fight. In v3.24 community today. Someone else absorbs the wlroots API churn | Larger and more configurable than the style argues for. Tundra's identity lives in its config rather than its code |
   | **Write on wlroots** (C) | Exactly the behaviour and the character. Full control of `P3-C05` | The largest component in the phase, plus an API port-forward every six months on top of `P2-D15`. Weigh against `G-C01` |
   | **Write on Smithay** (Rust) | Memory safety in the process handling untrusted client input, where it is worth most. `niri` proves it ships on Alpine musl | Same scale as above with a smaller pool of prior art to copy, and the crate-tree tension with `P3-D01` |

@@ -44,8 +44,10 @@ record of superseded decisions; there is no other one.
 
 **Cite what was verified.** A version number, a package repository or an upstream behaviour gets an
 inline note of where it came from and when it was read. A later reader needs to know what to
-re-check, not to trust a bare number. Package versions in these documents were read from
-`pkgs.alpinelinux.org` on 2026-09-14.
+re-check, not to trust a bare number. Every version and dependency claim in these documents was read
+on 2026-09-14, from `pkgs.alpinelinux.org` for Alpine, `packages.fedoraproject.org` and
+`mdapi.fedoraproject.org` for Fedora, `flathub.org` for application references, and the relevant
+upstream git tree for anything about how a program behaves.
 
 **Do not transcribe upstream formats.** Link to them. Config file field semantics belong to their
 projects and drift; what belongs here is the decision about how Tundra uses them.

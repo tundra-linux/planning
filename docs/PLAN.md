@@ -17,7 +17,7 @@ tundra-linux/
   planning/       this repo; documents, no code
     docs/         PLAN.md, PHASE1.md, PHASE2.md, PHASE3.md
     AGENTS.md     document conventions
-  tundra-pilot/   Phase 1 artifacts, the configuration tree in PHASE1.md P1-D12
+  tundra-pilot/   Phase 1 artifacts, the configuration tree in PHASE1.md P1-D24
                   (empty as of 2026-09-14)
 ```
 
@@ -28,8 +28,11 @@ keeping; `PHASE2.md` P2-D01 describes the `aports` overlay layout that goes in i
 
 **[Phase 1 — Fedora pilot](PHASE1.md).** Produces a version-controlled set of configuration
 artifacts, validated on Fedora KDE Plasma Desktop 44: the panel layout, shortcut set, file manager
-behaviour, theming, zsh configuration, and package delta. It does not produce an operating system.
-The point is to settle the desktop design somewhere it does not have to fight a build system.
+behaviour, theming, zsh configuration, package delta, Flatpak application set, containers,
+virtualization, network shares, and the peripheral recipes. It does not produce an operating system.
+The phase owns everything above the init system and nothing below it, so that every artifact it
+produces moves to Alpine with minimal change. The point is to settle the desktop design somewhere it
+does not have to fight a build system.
 
 **[Phase 2 — the Tundra distribution](PHASE2.md).** Builds the OS around those artifacts: `aports`
 overlay, OpenRC services, EROFS root, RAUC A/B updates, Flatpak, rootless Podman. Two of its spikes
@@ -85,21 +88,21 @@ reason particular decisions in the phase documents read the way they do.
 | `Ctrl+Shift+Esc` → `org.kde.ksysguard.desktop` | KSysGuard was replaced in Plasma 6. The desktop ID is `org.kde.plasma-systemmonitor.desktop`. |
 | Config file `~/.config/dolphincrc` | The file is `dolphinrc`. |
 | `SingleClick=false` belongs in that file | `SingleClick` lives in `kdeglobals` under `[KDE]`; it is a system-wide KDE setting, not a Dolphin one. |
-| "Overriding KDE's legacy single-click defaults" | Plasma 6 has shipped double-click as the default since 6.0, for exactly the Windows-migrant reason given. Nothing to override, which is why P1-D04 ships no override. |
+| "Overriding KDE's legacy single-click defaults" | Plasma 6 has shipped double-click as the default since 6.0, for exactly the Windows-migrant reason given. Nothing to override, which is why P1-D06 ships no override. |
 | Verification: `virsh list --all` as a normal user should return an empty list | Non-root `virsh` defaults to `qemu:///session`, which returns empty regardless of libvirt group membership. The check as written passes on a broken system. Use `virsh -c qemu:///system list --all`. |
 | Verification: `sh --version` should output `/usr/bin/dash` | dash has no `--version` flag. |
 | Verification: `echo $SHELL` after `chsh` | `$SHELL` is inherited from the login session and will not change in an open terminal. |
-| System zsh config at `/etc/zsh/zprofile` | That is the Debian layout. Alpine does use `/etc/zsh/`; Fedora's layout needs checking on the machine (`rpm -ql zsh \| grep /etc`) rather than assuming either. |
+| System zsh config at `/etc/zsh/zprofile` | That is the Debian layout. Checked on 2026-09-14: Alpine builds `zsh` with `--enable-etcdir=/etc/zsh` and sources drop-ins from `/etc/zsh/zshrc.d/*.zsh`; Fedora builds it with `--enable-etcdir=/etc`, giving `/etc/zshrc` with no drop-in directory. The drop-in is why P1-D10 ships a file rather than a replacement zshrc. |
 | "Eliminate SDDM" | Fedora 44 already replaced SDDM with Plasma Login Manager across all KDE variants, so the pilot will not be running SDDM to begin with. Tundra runs SDDM because Alpine has no PLM package (P2-D14). |
 
 ### Overstated or incomplete
 
 | Claim | Correction |
 | --- | --- |
-| A script validated under `dash` "will execute identically under BusyBox ash" | Close, not identical. They differ on `local`, `echo` handling and several builtins. Test both. |
+| A script validated under `dash` "will execute identically under BusyBox ash" | Close, not identical. They differ on `local`, `echo` handling and several builtins. The conclusion drawn at the time was to test both; P1-D13 later dropped `dash` and tests only the shell that ships, because validating against a stricter shell nobody runs produces failures that do not matter and misses the utility-level differences that do (P1-D14). |
 | Flatpak "bypasses Alpine's musl hurdles entirely" | True for the applications, which bring their own glibc runtime. The host still needs portals, PipeWire, Mesa and a session bus, all of which are musl-native problems. |
 | Podman/Distrobox just needs "cgroups v2, subuid/subgid, storage" | Accurate as a list, understated as effort. OpenRC does not do cgroup delegation the way systemd does, and BusyBox `adduser` does not provision subuid/subgid ranges. |
-| "Everything in `/etc/skel` transfers cleanly" | Only at user creation. It reaches nobody who already has an account, which is a real problem for an OS that ships updates. This is why P1-D06 puts controlled defaults in the image instead. |
+| "Everything in `/etc/skel` transfers cleanly" | Only at user creation. It reaches nobody who already has an account, which is a real problem for an OS that ships updates. This is why P1-D08 puts controlled defaults in the image instead. |
 | `usermod -aG libvirt,kvm $USER` | The `libvirt` group is the one that matters. `kvm` group membership is generally unnecessary on modern Fedora, where udev handles `/dev/kvm` permissions. |
 | Adding Flatpak paths to `PATH` in `.zshrc` | Fedora already exports `/var/lib/flatpak/exports/bin` via `/etc/profile.d/flatpak.sh`. Harmless, but it is not the fix it appears to be, and on Tundra it is the system profile that has to do this. |
 | "xsettingsd is a dynamic theme-syncing daemon" to avoid | On Plasma, `xsettingsd` is what `kde-gtk-config` uses to apply GTK settings on X11. In a Wayland-only image (P2-D10) it is moot. |
@@ -123,7 +126,7 @@ Checked later, while settling the branch policy, defaults mechanism, display man
 transport and hardware matrix:
 
 - A custom Look-and-Feel package with `contents/layouts/org.kde.plasma.desktop-layout.js` is the
-  supported way to ship a distro default panel layout (P1-D06).
+  supported way to ship a distro default panel layout (P1-D09).
 - `plasma-login-manager` is absent from Alpine entirely, including edge. SDDM 0.21.0 is in
   `community` (P2-D14).
 - RAUC supports verity bundles with HTTP streaming, and adaptive `block-hash-index` updates at 0.8%

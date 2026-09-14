@@ -102,10 +102,14 @@ The main body of Phase 2 starts when Phase 1's deliverables exist and its gates 
 the configuration repo applies to a clean install unattended (P1-O01), the desktop design is settled
 rather than still moving (P1-O02), the Look-and-Feel package works on a fresh account (P1-O03), the
 provenance record says which keys take from `/etc/xdg` and which do not (P1-O04), the script corpus
-and its lint harness exist (P1-O05), the zsh configuration is split into system file and stub
-(P1-O06), the package delta is documented with reasons (P1-O07), and the KVM recipe is written
-(P1-O08). Phase 1's remaining exit conditions apply too: its gates pass on a clean install, the
-provenance record is complete, and P1-Q01 is answered, since P2-D07 implements the answer.
+and its lint harness exist (P1-O05), the zsh drop-in and its user stub exist (P1-O06), the package
+delta is documented with reasons and Alpine counterparts (P1-O07), and the KVM recipe is written
+(P1-O08). Phase 1 also hands over the Flatpak application manifest (P1-O10), the presentation
+defaults (P1-O11), and the container, network-share and peripheral recipes (P1-O12, P1-O13,
+P1-O14). The translation record (P1-O15) is what makes the handoff mechanical rather than a reading
+exercise, so it gates entry as much as any of them. Phase 1's remaining exit conditions apply too:
+its gates pass on a clean install, the provenance record is complete, and P1-Q01 is answered, since
+P2-D07 implements the answer.
 
 Track 0 does not wait for any of this.
 
@@ -238,13 +242,17 @@ discovered at integration time.
   1.8.2.5). Set `rc_cgroup_mode=unified`, provision `/etc/subuid` and `/etc/subgid` at user
   creation, and put container storage on the persistent partition.
 - **P2-D09** BusyBox `ash` is `/bin/sh`; `zsh` is the interactive shell for human users. The zsh
-  configuration comes from P1-O06 and lives in Alpine's system-wide zsh file, with
-  `/etc/skel/.zshrc` as a stub.
+  configuration comes from P1-O06 and installs as a drop-in at `/etc/zsh/zshrc.d/tundra.zsh`, which
+  Alpine's own `/etc/zsh/zshrc` sources, with `/etc/skel/.zshrc` as a stub. Nothing here replaces or
+  edits the `zsh` package's files, which is the property that makes the artifact survive a rebase.
 - **P2-D10** Pure Wayland. No `xorg-server` in the host image. `xwayland` ships because Flatpak
   applications will need it, but nothing on the host requires it.
 - **P2-D11** Alpine package selection follows the Phase 1 delta (P1-O07), translated rather than
   copied. Install `plasma-desktop` rather than `plasma-desktop-meta`; omit Discover, PackageKit,
-  Baloo and the PIM stack.
+  Baloo and the PIM stack. Alpine also ships `plasma-desktop-meta-elogind`, which is the meta package
+  built against the `P2-D05` seat decision; Spike A should establish whether taking it is cheaper
+  than assembling the same set by hand, because it is the one meta package whose dependency list
+  encodes a decision this project has already made.
 - **P2-D12** Target AMD and Intel graphics. NVIDIA support means Nouveau/NVK only: the proprietary
   driver's userspace is glibc-only and NVIDIA has declined to provide a musl build, so this is a
   hard boundary rather than a packaging problem to solve later.
