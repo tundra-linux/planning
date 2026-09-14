@@ -1,0 +1,30 @@
+* text=auto eol=lf
+
+# Binary assets must be exempt from eol normalization. `text=auto` above misdetects some
+# binaries as text, and git then strips `\r` bytes on checkout, so the working tree holds
+# corrupted files while the stored blobs stay intact. A PNG signature is
+# `89 50 4e 47 0d 0a 1a 0a`; losing the `0d` makes it unrecognisable.
+#
+# This repo tracks no binaries today, but Phase 1 design work produces screenshots. The list
+# is here pre-emptively and copied whole rather than grown an extension at a time, because
+# the corruption arrives silently with the first binary committed.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.avif binary
+*.webp binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary
+*.eot  binary
+*.mp4  binary
+*.webm binary
+*.zip  binary
+*.img  binary
+*.iso  binary
+*.apk  binary
+*.raucb binary

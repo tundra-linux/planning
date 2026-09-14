@@ -1,10 +1,28 @@
 # Tundra
 
-Tundra is an image-based, Alpine-derived KDE Plasma desktop aimed at technically literate people
-leaving Windows. Applications come from Flathub, the host filesystem is read-only, updates are
-atomic A/B, and Podman with Distrobox is the escape valve for anything that needs a glibc userland.
+Tundra is an image-based, Alpine-derived desktop aimed at technically literate people leaving
+Windows. Applications come from Flathub, the host filesystem is read-only, updates are atomic A/B,
+and Podman with Distrobox is the escape valve for anything that needs a glibc userland.
 
-Status: design, nothing built.
+The shell is KDE Plasma through Phases 1 and 2. Phase 3 is the intent to replace it with something
+written for this project, and is direction rather than design.
+
+**Status:** design, nothing built.
+**Last substantive revision:** 2026-09-14.
+
+## Repositories
+
+```
+tundra-linux/
+  planning/       this repo; documents, no code
+    docs/         PLAN.md, PHASE1.md, PHASE2.md, PHASE3.md
+    AGENTS.md     document conventions
+  tundra-pilot/   Phase 1 artifacts, the configuration tree in PHASE1.md P1-D12
+                  (empty as of 2026-09-14)
+```
+
+Phase 2 has no build repository yet. It needs one before Track 0 Spike B produces anything worth
+keeping; `PHASE2.md` P2-D01 describes the `aports` overlay layout that goes in it.
 
 ## Phases
 
@@ -17,6 +35,11 @@ The point is to settle the desktop design somewhere it does not have to fight a 
 overlay, OpenRC services, EROFS root, RAUC A/B updates, Flatpak, rootless Podman. Two of its spikes
 run during Phase 1 rather than after it, because the session plumbing and the image pipeline are the
 parts Phase 1 deliberately does not rehearse.
+
+**[Phase 3 — the Tundra desktop](PHASE3.md).** Drops KDE Plasma for a modular Wayland session
+written for this project. Direction rather than design: it carries more open questions than
+decisions, and the first of them is what Plasma actually fails at. It changes the desktop layer and
+nothing beneath it, and it cannot start until Phase 2 is shipping on its cadence.
 
 ## Project-wide
 
@@ -32,9 +55,12 @@ parts Phase 1 deliberately does not rehearse.
 ## How to read the identifiers
 
 Each phase document numbers its own outcomes, constraints, decisions, risks, verification gates and
-open questions with a `P1-` or `P2-` prefix. Identifiers are allocation-ordered and stable — they
-are not renumbered when items are added, so a reference in a commit message or an issue keeps
-meaning what it meant. Cross-document references are written in full, as `P1-O03` or `P2-D14`.
+open questions with a `P1-`, `P2-` or `P3-` prefix. `G-` is project-wide and lives here.
+Cross-document references are written in full, as `P1-O09` or `P2-D15`.
+
+Identifiers are **positional, not durable**: they renumber whenever a document is reorganised, so
+they must not be cited from outside this repo. The full rule and the checks that keep references
+honest are in [`AGENTS.md`](../AGENTS.md).
 
 ---
 
@@ -64,7 +90,7 @@ reason particular decisions in the phase documents read the way they do.
 | Verification: `sh --version` should output `/usr/bin/dash` | dash has no `--version` flag. |
 | Verification: `echo $SHELL` after `chsh` | `$SHELL` is inherited from the login session and will not change in an open terminal. |
 | System zsh config at `/etc/zsh/zprofile` | That is the Debian layout. Alpine does use `/etc/zsh/`; Fedora's layout needs checking on the machine (`rpm -ql zsh \| grep /etc`) rather than assuming either. |
-| "Eliminate SDDM" | Fedora 44 already replaced SDDM with Plasma Login Manager across all KDE variants, so the pilot will not be running SDDM to begin with. Tundra runs SDDM because Alpine has no PLM package (P2-D13). |
+| "Eliminate SDDM" | Fedora 44 already replaced SDDM with Plasma Login Manager across all KDE variants, so the pilot will not be running SDDM to begin with. Tundra runs SDDM because Alpine has no PLM package (P2-D14). |
 
 ### Overstated or incomplete
 
@@ -76,7 +102,7 @@ reason particular decisions in the phase documents read the way they do.
 | "Everything in `/etc/skel` transfers cleanly" | Only at user creation. It reaches nobody who already has an account, which is a real problem for an OS that ships updates. This is why P1-D06 puts controlled defaults in the image instead. |
 | `usermod -aG libvirt,kvm $USER` | The `libvirt` group is the one that matters. `kvm` group membership is generally unnecessary on modern Fedora, where udev handles `/dev/kvm` permissions. |
 | Adding Flatpak paths to `PATH` in `.zshrc` | Fedora already exports `/var/lib/flatpak/exports/bin` via `/etc/profile.d/flatpak.sh`. Harmless, but it is not the fix it appears to be, and on Tundra it is the system profile that has to do this. |
-| "xsettingsd is a dynamic theme-syncing daemon" to avoid | On Plasma, `xsettingsd` is what `kde-gtk-config` uses to apply GTK settings on X11. In a Wayland-only image (P2-D09) it is moot. |
+| "xsettingsd is a dynamic theme-syncing daemon" to avoid | On Plasma, `xsettingsd` is what `kde-gtk-config` uses to apply GTK settings on X11. In a Wayland-only image (P2-D10) it is moot. |
 
 ### Confirmed
 
@@ -99,10 +125,17 @@ transport and hardware matrix:
 - A custom Look-and-Feel package with `contents/layouts/org.kde.plasma.desktop-layout.js` is the
   supported way to ship a distro default panel layout (P1-D06).
 - `plasma-login-manager` is absent from Alpine entirely, including edge. SDDM 0.21.0 is in
-  `community` (P2-D13).
+  `community` (P2-D14).
 - RAUC supports verity bundles with HTTP streaming, and adaptive `block-hash-index` updates at 0.8%
   index overhead, distinct from casync's chunk-store approach. Its PKI documentation describes four
-  signing models but no key-rotation mechanism (P2-D15, P2-R09).
+  signing models but no key-rotation mechanism (P2-D16, P2-R09).
+- RAUC's bootloader backends are barebox, grub, uboot, efi, custom and noop. The `grub` backend
+  drives `grub-editenv` with `<bootname>_OK`, `<bootname>_TRY` and `ORDER`; the `efi` backend uses
+  the `BootCurrent` EFI variable (P2-D03).
+- RAUC itself is in no stable Alpine branch — `rauc` 1.10.1 sits in `edge/testing`, built
+  2023-08-08, per `pkgs.alpinelinux.org` on 2026-09-14. Tundra builds its own (P2-D04).
+- Alpine's wiki documents immutable root with atomic upgrades using btrfs snapshots and rEFInd, a
+  different architecture from image-based A/B. Recorded as a rejected alternative in P2-D02.
 
 ### Sources
 
@@ -117,6 +150,8 @@ transport and hardware matrix:
 - https://github.com/chimera-linux/turnstile
 - https://rauc.readthedocs.io/en/latest/integration.html
 - https://rauc.readthedocs.io/en/latest/advanced.html
+- https://rauc.readthedocs.io/en/latest/reference.html
+- https://wiki.alpinelinux.org/wiki/Immutable_root_with_atomic_upgrades
 - https://community.kde.org/Plasma/lookAndFeelPackage
 - https://userbase.kde.org/Plasma/Create_a_Look_and_Feel_Package
 - https://docs.pagure.org/packaging-guidelines/Packaging:Scriptlets.html

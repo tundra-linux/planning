@@ -1,0 +1,20 @@
+# The documents here are hand-wrapped prose. These settings encode what is already true of
+# them so an editor does not quietly undo it: LF endings, a final newline, no trailing
+# whitespace, and a 100-column guide.
+#
+# `max_line_length` is a guide, not a limit. Tables, code fences and the directory trees in
+# PHASE1.md and PHASE2.md routinely exceed it and must not be reflowed — a wrapped table row
+# stops being a table.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.md]
+indent_size = 2
+max_line_length = 100

@@ -1,0 +1,36 @@
+# Signing material must never enter this repo, even by accident. Tundra's update chain
+# (PHASE2.md P2-D16) is a single CA with an offline root: the release key that signs every
+# image, and the abuild key that signs the package repository. A leak of either is
+# unrecoverable — every installed machine trusts them, and P2-R09 records that RAUC has no
+# rotation mechanism to fall back on.
+#
+# This is the mechanical backstop for a stray `git add -A`. Staging explicitly is still the
+# rule, and this list is not a substitute for it.
+*.pem
+*.key
+*.rsa
+*.priv
+*.p12
+*.pfx
+*.cer
+*.crt
+*.gpg
+*.asc
+.env
+.env.*
+
+# Build and image output, should any land here by mistake. This repo holds documents;
+# artifacts belong in tundra-pilot or a Phase 2 build repo.
+*.img
+*.iso
+*.raucb
+*.apk
+
+# OS and editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~

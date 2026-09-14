@@ -1,5 +1,12 @@
 # Phase 1 — Fedora pilot
 
+**Status:** design, nothing built.
+**Repo:** artifacts land in `tundra-linux/tundra-pilot`, empty as of 2026-09-14. These documents
+live in `tundra-linux/planning`.
+**Reference platform:** Fedora KDE Plasma Desktop 44, Plasma 6.6.4, per
+[Fedora Magazine](https://fedoramagazine.org/whats-new-in-fedora-kde-plasma-desktop-44/) read
+2026-09-14.
+
 Phase 1 does not produce an operating system. It produces a version-controlled set of
 configuration artifacts, validated on Fedora KDE Plasma Desktop 44, that Phase 2 consumes as the
 Tundra default profile. The pilot machine is scaffolding; the repo is the deliverable.
@@ -31,6 +38,12 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   against each entry, as the input to Phase 2's Alpine package selection.
 - **P1-O08** A working KVM and `virt-manager` recipe: packages, groups, services, and the
   permissions model.
+- **P1-O09** The desktop design written down as a specification independent of the configuration
+  that implements it: the panel arrangement, the shortcut table, the file manager behaviours and the
+  theming intent, each stated as a rule rather than as a KDE key. Phase 2 consumes the config files;
+  [Phase 3](PHASE3.md) discards them and consumes only this, because a Look-and-Feel package and a
+  `kdeglobals` are worthless the moment Plasma goes. It costs an afternoon during Phase 1 and saves
+  rediscovering the design from a screenshot years later.
 
 ## Constraints
 
@@ -87,7 +100,10 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   correctness through tooling. Every script is checked with `shellcheck -s sh`,
   `devscripts-checkbashisms`, and parsed by both `dash` and `busybox ash`. This catches bashisms
   before they reach Alpine, which was the point of the original dash idea, without putting `dnf` at
-  risk.
+  risk. `scripts/lint.sh` runs all four over every `#!/bin/sh` script in the tree and exits nonzero
+  on the first failure; a `.git/hooks/pre-commit` that calls it is what makes the rule hold, since a
+  check run by hand is a check that stops being run. The hook is installed by `scripts/apply.sh` so
+  a fresh clone gets it without a separate instruction.
 - **P1-D08** The zsh configuration is hand-written against zsh's own modules: `compinit` for
   completion and `vcs_info` for git status in the prompt. No Starship, no Powerlevel10k, no Oh My
   Zsh. A prompt is not worth a binary dependency or a framework's update surface.
@@ -106,11 +122,46 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   `gtk-4.0/settings.ini`. Each capture records the Plasma version per P1-C04. P1-D06 decides how
   each one is delivered; the panel layout in particular never ships as a copied
   `plasma-org.kde.plasma.desktop-appletsrc`.
-- **P1-D12** Repo layout. `skel/` for the `/etc/skel` stubs, `xdg/` mirroring `/etc/xdg`,
-  `look-and-feel/org.tundra.desktop/` for the global theme package, `shell/` for the system zsh
-  config, `packages/` for the P1-D09 lists, `scripts/` for the apply and capture scripts, and
-  `docs/` for the captured-key provenance record from P1-O04. The tree mirrors its install
-  destinations so that applying it is a copy rather than a translation.
+- **P1-D12** Repo layout, in `tundra-pilot`. The tree mirrors its install destinations so applying
+  it is a copy rather than a translation, and so Phase 2 can consume directories wholesale instead
+  of rereading this document.
+
+  ```
+  tundra-pilot/
+    xdg/                         → /etc/xdg          system-wide KDE defaults
+      kdeglobals                   theme, SingleClick, colour scheme
+      kwinrc                       tiling, window behaviour, shortcuts owned by KWin
+      kglobalshortcutsrc           the P1-D03 delta only, never the whole file
+      dolphinrc                    P1-D04
+      gtk-3.0/settings.ini         Breeze-GTK
+      gtk-4.0/settings.ini         Breeze-GTK
+    look-and-feel/
+      org.tundra.desktop/        → /usr/share/plasma/look-and-feel/org.tundra.desktop/
+        metadata.json              package identity; see the KDE docs for field semantics
+        contents/layouts/org.kde.plasma.desktop-layout.js    the P1-D02 panel
+        contents/previews/           screenshots for the theme picker
+    shell/
+      zshrc                      → the system-wide zsh file    P1-D08, P1-D13
+    skel/
+      .zshrc                     → /etc/skel/.zshrc            customization stub only
+    packages/
+      install.txt                  P1-D09, one package per line with a reason
+      remove.txt                   P1-D09
+    scripts/
+      apply.sh                     idempotent; what P1-V10 runs
+      capture.sh                   pulls live config back into the tree, records Plasma version
+      lint.sh                      P1-D07, invoked by the pre-commit hook
+    docs/
+      provenance.md                P1-O04: per key, which Plasma version, and whether it takes
+                                   from /etc/xdg or needs /etc/skel
+      design.md                    P1-O09: the design as rules, not as KDE keys. The only
+                                   artifact Phase 3 inherits
+  ```
+
+  The Look-and-Feel package's `metadata.json` fields are upstream API and are not transcribed here;
+  see [KDE's Look and Feel documentation](https://community.kde.org/Plasma/lookAndFeelPackage). The
+  one thing to get right locally is that the layout script is what supplies the default panel, so
+  nothing in `skel/` ever names a Plasma applet (`P1-V12`).
 - **P1-D13** The shared zsh config carries a small set of transition aliases — `cls` for `clear`,
   `ipconfig` for `ip -color a` — to absorb muscle-memory misses without shadowing any real command.
   Keep the list short; this is a courtesy, not a compatibility layer.
@@ -120,27 +171,15 @@ Each is an artifact that exists in the repo when Phase 1 is done.
 
 ## Risks
 
-- **P1-R01** *Fedora 44's Plasma Setup first-run wizard may overwrite seeded defaults.* Plasma Setup
-  is new in this release and its interaction with a seeded `/etc/skel` and `/etc/xdg` is unknown.
-  Mitigation: P1-V09 explicitly records whether the wizard ran and what it changed.
-- **P1-R02** *`dash` and BusyBox `ash` are not the same shell.* They diverge on `local`, `echo`
-  behaviour and several builtins, so validating against dash alone lets real breakage through.
-  Mitigation: P1-D07 parses with both. `busybox` 1.37.0 is packaged in Fedora 44; if the build omits
-  the `ash` applet, fall back to a container for that check.
-- **P1-R03** *Plasma's `/etc/xdg` defaults coverage is not uniform.* Some KCMs write configuration
-  keys they do not read back as system defaults, so a value placed in `/etc/xdg` may be silently
-  ignored while the identical value in `~/.config` works. Mitigation: P1-V11 establishes empirically
-  which keys take. Anything that does not take falls back to `/etc/skel` and is recorded as reaching
-  new accounts only.
-- **P1-R04** *Plasma version skew between the pilot and Alpine.* Alpine v3.24 currently carries
-  `plasma-desktop` 6.6.6 against Fedora 44's 6.6.4, so configs should move cleanly today. That
-  parity is incidental and will drift. Mitigation: the provenance discipline in P1-C04, and
-  re-verification when skew exceeds one minor release.
-- **P1-R05** *The pilot machine is not the deliverable.* The characteristic failure mode of this
-  phase is spending the time making one Fedora install pleasant to use rather than making the
-  configuration reproducible. A setting changed by hand in System Settings and never captured is
-  work that has to be done twice. Mitigation: P1-V10 is the gate that catches it, and it should be
-  run early and often rather than once at the end.
+Severity is the cost if the risk lands, not the odds of it landing.
+
+| # | Risk | Severity | Mitigation |
+|---|---|---|---|
+| P1-R01 | **Fedora 44's Plasma Setup first-run wizard may overwrite seeded defaults.** Plasma Setup is new in this release and its interaction with a seeded `/etc/skel` and `/etc/xdg` is unknown. | Medium | P1-V09 explicitly records whether the wizard ran and what it changed |
+| P1-R02 | **`dash` and BusyBox `ash` are not the same shell.** They diverge on `local`, `echo` behaviour and several builtins, so validating against dash alone lets real breakage through. | Low | P1-D07 parses with both. `busybox` 1.37.0 is in Fedora 44; if that build omits the `ash` applet (P1-V03), fall back to a container for the check |
+| P1-R03 | **Plasma's `/etc/xdg` defaults coverage is not uniform.** Some KCMs write keys they do not read back as system defaults, so a value in `/etc/xdg` may be silently ignored while the identical value in `~/.config` works. | Medium | P1-V11 establishes empirically which keys take. Anything that does not falls back to `/etc/skel`, recorded in `docs/provenance.md` as reaching new accounts only |
+| P1-R04 | **Plasma version skew between the pilot and Alpine.** Alpine v3.24 carries `plasma-desktop` 6.6.6 against Fedora 44's 6.6.4, so configs should move cleanly today. That parity is incidental and will drift. | Low | The provenance discipline in P1-C04; re-verify when skew exceeds one minor release |
+| P1-R05 | **The pilot machine is not the deliverable.** The characteristic failure mode of this phase is making one Fedora install pleasant to use rather than making the configuration reproducible. A setting changed by hand in System Settings and never captured is work that has to be done twice — and it is invisible, because the machine looks right. | High | P1-V10 is the gate that catches it, and it is worth running weekly from the start rather than once at the end. `scripts/capture.sh` exists so that capturing is cheaper than not capturing |
 
 ## Verification
 
@@ -175,7 +214,7 @@ Each is an artifact that exists in the repo when Phase 1 is done.
 
 Phase 1 is complete when all of the following hold:
 
-1. P1-O01 through P1-O08 exist in the repo.
+1. P1-O01 through P1-O09 exist in the repo.
 2. P1-V01 through P1-V12 pass on a clean Fedora KDE 44 install performed from the repo.
 3. The provenance record from P1-O04 lists every captured key, the Plasma version it was captured
    against, and whether it takes from `/etc/xdg` or needs `/etc/skel`.
