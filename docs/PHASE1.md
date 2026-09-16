@@ -5,7 +5,8 @@
 live in `tundra-linux/planning`.
 **Reference platform:** Fedora KDE Plasma Desktop 44 — Plasma 6.7.5, KDE Gear 25.12.3, KDE
 Frameworks 6.25.0. Versions read from `packages.fedoraproject.org` on 2026-09-14.
-**Pilot host:** a VMware Workstation guest with nested virtualization enabled (P1-D02).
+**Pilot host:** a VMware Workstation guest for the desktop work, plus a vSphere guest that exists
+only to clear the virtualization gate (P1-D02).
 
 Phase 1 does not produce an operating system. It produces a version-controlled set of
 configuration artifacts, validated on Fedora KDE Plasma Desktop 44, that Phase 2 consumes as the
@@ -119,13 +120,28 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   and atomic-update half of Tundra. Rejected because the pilot's job is to iterate on desktop
   configuration quickly, and an immutable base makes that loop slower. The cost is that Phase 1
   rehearses none of the image machinery, which Phase 2 absorbs through its Track 0 spikes.
-- **P1-D02** The pilot runs in a **VMware Workstation guest** with nested virtualization enabled,
-  which is the *Virtualize Intel VT-x/EPT or AMD-V/RVI* processor option on the VM. Without it
-  `/dev/kvm` never appears in the guest and P1-O08 cannot be verified past package installation.
-  Two consequences follow. The virtualization work is testable end to end, including booting a
-  nested guest (P1-V06). Nothing hardware-shaped is: suspend and resume, backlight, wifi, discrete
-  graphics, real printers and real Bluetooth adapters are all out of reach, and qualifying them
-  stays entirely with Phase 2's hardware matrix (P1-R06).
+- **P1-D02** The pilot runs in **two guests**: a VMware Workstation guest carrying everything except
+  the virtualization gate, and a **vSphere guest carrying that one gate**. The split is forced,
+  not chosen. Nested virtualization is unavailable under Workstation on the development host,
+  because Windows 11 Enterprise there runs virtualization-based security with Credential Guard and
+  HVCI active and the DeviceGuard policy marked `Locked`. That keeps the Hyper-V hypervisor resident,
+  which puts Workstation into its ULM monitor mode, and ULM cannot pass AMD-V through to a guest:
+  `vhv.enable` is inert and Workstation refuses the *Virtualize AMD-V/RVI* option outright at power
+  on. Read from the host's `Win32_DeviceGuard` WMI class and
+  `HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard` on 2026-09-16. The lock is a managed-endpoint
+  policy rather than a local setting, so treat it as a fixed property of the machine. ESXi has no
+  such layer and exposes hardware-assisted virtualization to the guest, which is what makes P1-V06
+  reachable there. Three consequences follow. Everything that is not virtualization is verified on
+  Workstation, which is the correct host for it regardless of the lock, because Workstation gives
+  the guest 3D acceleration and an audio device and P1-V08 requires both. P1-V06 alone moves to
+  vSphere, and is the only gate that does. Nothing hardware-shaped is verified on either, because
+  both are still virtual machines: suspend and resume, backlight, wifi, discrete graphics, real
+  printers and real Bluetooth adapters stay out of reach, and qualifying them remains entirely with
+  Phase 2's hardware matrix (P1-R06). Rejected: moving the whole pilot to Hyper-V, which does
+  support nested virtualization on AMD at Windows 11 24H2. It gives Linux guests no audio device and
+  no 3D acceleration, so it would trade P1-V06 for P1-V08 and degrade the Plasma work this phase
+  exists to do. Rejected: pursuing a VBS exemption, which is a request against a corporate security
+  control with a long lead time and a likely refusal, to buy one gate.
 - **P1-D03** Start on Fedora 44 and **rebase to Fedora 45 when it reaches general availability**,
   currently scheduled for 2026-10-20 with the beta on 2026-09-15, read from the Fedora 45 schedule
   on 2026-09-14. The rebase is not an interruption to absorb. It is the one chance this project gets
@@ -366,6 +382,7 @@ Severity is the cost if the risk lands, not the odds of it landing.
 | P1-R06 | **A VM proves nothing hardware-shaped.** Suspend and resume, backlight, wifi, discrete graphics, real printers and real Bluetooth adapters are untestable on the pilot, and they are where a desktop distribution usually breaks. | Medium | Accepted deliberately in P1-D02. P1-D22 verifies these subsystems only as far as services and panels, and the hardware half is named as Phase 2 work under `P2-D17` rather than left to be discovered there |
 | P1-R07 | **The pilot writes to a package-owned config file.** Fedora's `zsh` owns `/etc/zshrc` and `/etc/skel/.zshrc` as `%config(noreplace)`; the apply script appends to the first and replaces the second. `noreplace` means updates leave the modification alone and drop an `.rpmnew` beside it, so nothing breaks quietly, but `rpm -V zsh` reports both files forever. | Low | P1-V14 asserts the append is present exactly once and that no other package-owned file is modified. The condition does not exist on Tundra, where the artifact is a plain drop-in |
 | P1-R08 | **The Fedora 45 rebase moves Plasma underneath the provenance record.** Every key captured against 6.7.5 is re-validated after the rebase or it is a claim about a version the pilot no longer runs. | Medium | P1-V20 makes the rebase a gate with a recorded diff rather than an event that happens to the machine |
+| P1-R09 | **The gates are cleared on two hosts that can drift apart.** P1-V06 runs on a vSphere guest and everything else on the Workstation pilot (P1-D02). A package delta applied to one and not the other makes P1-V06 a statement about a system that is not the pilot, and the failure is quiet because both machines pass their own gates. | Low | Both guests are built from the same repo checkout by `scripts/apply.sh`, so the virt stack under test is the P1-D16 one on either. The vSphere guest is disposable and rebuilt rather than maintained, which is cheaper than keeping two machines in step. The provenance record names the host that cleared each gate |
 
 ## Verification
 
@@ -384,9 +401,11 @@ Each gate is a command and a pass condition.
 - **P1-V05** `virsh -c qemu:///system list --all` as an unprivileged user returns a VM list without a
   permission error or a root password prompt. The URI is mandatory: bare `virsh` defaults to
   `qemu:///session` for non-root and returns an empty list even with no system access at all.
-- **P1-V06** `test -c /dev/kvm` succeeds and a guest created in `virt-manager` reaches a login prompt.
-  This is the gate that catches nested virtualization being off on the VMware side (P1-D02). Without
-  it P1-V05 passes on a host that cannot actually run a VM.
+- **P1-V06** On the vSphere guest, with *Expose hardware assisted virtualization to the guest OS*
+  enabled, `test -c /dev/kvm` succeeds and a guest created in `virt-manager` reaches a login prompt.
+  This is the only gate that does not run on the Workstation pilot (P1-D02). It is also what stops
+  P1-V05 from standing in for working virtualization: P1-V05 exercises the libvirt socket and group
+  wiring and passes unchanged on a host with no hardware virtualization at all.
 - **P1-V07** `rpm -q PackageKit plasma-discover kf6-baloo-file` reports all three as not installed,
   `rpm -q PackageKit-Qt6 kf6-baloo-libs` reports both as installed, and a subsequent `dnf upgrade`
   pulls none of the removed three back in. The second half matters: if those two libraries went with
@@ -424,8 +443,10 @@ Each gate is a command and a pass condition.
 - **P1-V19** On a clean install, `scripts/apply.sh` leaves every reference in `flatpak/apps.txt`
   present in `flatpak list --system --app` and visible in the Kickoff menu.
 - **P1-V20** After rebasing the pilot to Fedora 45, `scripts/apply.sh` runs clean and P1-V01 through
-  P1-V19 pass. Every gate that needed a change in order to pass is recorded in the provenance record
-  against the new Plasma version (P1-D03, P1-R08).
+  P1-V19 pass, P1-V06 on a vSphere guest rebased alongside it and the rest on the Workstation pilot
+  (P1-D02). Naming the split matters here: this gate is stated as a range, and a range silently
+  asserts that one machine can clear all of it. Every gate that needed a change in order to pass is
+  recorded in the provenance record against the new Plasma version (P1-D03, P1-R08).
 - **P1-V21** `scripts/translate-check.sh` exits 0, having confirmed that every file in the tree
   outside `baseline/` and `docs/` has an entry in `docs/translation.md` naming its Alpine
   destination. This is what makes P1-C03 enforceable.
@@ -436,7 +457,8 @@ Phase 1 is complete when all of the following hold:
 
 1. P1-O01 through P1-O15 exist in the repo.
 2. P1-V01 through P1-V21 pass on a clean Fedora KDE install performed from the repo: on Fedora 45 if
-   it has shipped, on Fedora 44 if it has not.
+   it has shipped, on Fedora 44 if it has not. P1-V06 passes on the vSphere guest and the rest on
+   the Workstation pilot (P1-D02); the provenance record names which host cleared each.
 3. The provenance record from P1-O04 lists every captured key, the Plasma version it was captured
    against, and whether it takes from `/etc/xdg` or needs `/etc/skel`.
 4. The translation record from P1-O15 covers every file in the tree.
@@ -446,26 +468,34 @@ Phase 1 is complete when all of the following hold:
 
 ## Work sequence
 
-1. Build the pilot VM: Fedora KDE 44, VMware Workstation, nested virtualization on. Verify P1-V06
-   before anything else, because it is the one thing that is far cheaper to fix at VM-creation time.
-2. Capture the stock `kglobalshortcutsrc`, `kdeglobals` and panel state into `baseline/` before
+1. Check the development host for locked virtualization-based security before building anything.
+   That single fact decides whether P1-V06 runs on the pilot or needs a second guest (P1-D02), and
+   it is far cheaper to learn now than at step 5.
+2. Build the pilot VM: Fedora KDE 44 on VMware Workstation, UEFI firmware. Snapshot it clean on
+   first boot, before any configuration. Every later step that wants a clean install reverts to that
+   snapshot instead of reinstalling, which is what makes P1-V11 cheap enough to run weekly (P1-R05).
+3. Capture the stock `kglobalshortcutsrc`, `kdeglobals` and panel state into `baseline/` before
    changing anything. This baseline is what makes P1-D05's delta approach possible, and it cannot be
    recovered later.
-3. Apply the package delta (P1-D15, P1-D16, P1-D19) and verify P1-V01, P1-V03, P1-V05, P1-V07.
-4. Install the Flatpak set (P1-D17) and verify P1-V08. Do this early: it is what makes every later
+4. Apply the package delta (P1-D15, P1-D16, P1-D19) and verify P1-V01, P1-V03, P1-V05, P1-V07.
+5. Build the vSphere guest from the same checkout and clear P1-V06 there (P1-D02, P1-R09). Do it
+   here rather than at the end. P1-V06 is what proves the P1-D16 recipe actually works, and finding
+   out that it does not, after the package lists are frozen, is the expensive order to discover it
+   in.
+6. Install the Flatpak set (P1-D17) and verify P1-V08. Do this early: it is what makes every later
    check test the system users will actually have.
-5. Build the desktop design (P1-D04 through P1-D07) by hand, then run the task checklist against it
+7. Build the desktop design (P1-D04 through P1-D07) by hand, then run the task checklist against it
    (P1-D23). Do not start capturing until the design has stopped changing.
-6. Stand up the repo layout (P1-D24), the apply and capture scripts (P1-D25), and the lint harness
+8. Stand up the repo layout (P1-D24), the apply and capture scripts (P1-D25), and the lint harness
    (P1-D13, P1-V02).
-7. Write the zsh configuration (P1-D10 through P1-D12) and verify P1-V14.
-8. Do the subsystem work: containers (P1-D19, P1-V15), shares and secrets (P1-D20, P1-V16),
-   presentation defaults (P1-D21, P1-V17), printing and Bluetooth (P1-D22, P1-V18).
-9. Capture (P1-D18), build the Look-and-Feel package (P1-D09), and split delivery per P1-D08.
-10. Run P1-V10 through P1-V13 against a fresh user, then P1-V11 against a clean install. Iterate
+9. Write the zsh configuration (P1-D10 through P1-D12) and verify P1-V14.
+10. Do the subsystem work: containers (P1-D19, P1-V15), shares and secrets (P1-D20, P1-V16),
+    presentation defaults (P1-D21, P1-V17), printing and Bluetooth (P1-D22, P1-V18).
+11. Capture (P1-D18), build the Look-and-Feel package (P1-D09), and split delivery per P1-D08.
+12. Run P1-V10 through P1-V13 against a fresh user, then P1-V11 against a clean install. Iterate
     until both pass without hand edits.
-11. Write the translation record and make P1-V21 pass.
-12. When Fedora 45 ships, rebase and run P1-V20.
+13. Write the translation record and make P1-V21 pass.
+14. When Fedora 45 ships, rebase and run P1-V20.
 
 ## Open questions
 
