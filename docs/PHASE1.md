@@ -268,8 +268,9 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   `target/`, which ships on Tundra and runs under BusyBox. `scripts/lint.sh` distinguishes the two
   classes by directory, and the exemption is recorded rather than assumed.
 - **P1-D15** The Fedora package delta. Install: `zsh`, `busybox`, `ShellCheck`,
-  `devscripts-checkbashisms`, the virtualization stack from P1-D16, and the container stack from
-  P1-D19. No `dash`, per P1-D13. Remove: `plasma-discover`, `plasma-discover-notifier`, `PackageKit`,
+  `devscripts-checkbashisms`, `opendoas` per P1-D26, the virtualization stack from P1-D16, and the
+  container stack from P1-D19. No `dash`, per P1-D13. Remove: `plasma-discover`,
+  `plasma-discover-notifier`, `PackageKit`,
   `kf6-baloo-file`, and the PIM stack (`akonadi-*`, `kmail`, `korganizer`) where present. Two of
   those removals need their boundaries stated, because both look like they should take Plasma with
   them and neither does.
@@ -278,6 +279,18 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   stays. `plasma-desktop` links `libKF6Baloo.so.6`, which comes from `kf6-baloo-libs` rather than
   from `kf6-baloo-file`, so the indexer daemon is the separable part; `baloo-file` is not a Fedora
   package name at all. Dependency data read from `mdapi.fedoraproject.org` for f44 on 2026-09-14.
+  The remove list also takes out the **host applications the KDE spin ships**: `firefox` with its
+  langpacks, `libreoffice-core` and the twenty packages hanging off it, and `okular`. Each has a
+  Flatpak in P1-D17 doing the same job. This is parity work rather than housekeeping: Phase 2 ships
+  no host package manager and no host applications, so an RPM application on the pilot is not a
+  duplicate to tidy up later, it is a difference between the pilot and the target that makes every
+  check here a statement about a system nobody will run. About a gigabyte goes with them and
+  nothing in the install list is touched, confirmed on the pilot on 2026-09-18. Two deliberate
+  casualties: `kf6-threadweaver`, which nothing else wanted once Okular went, and
+  `plasma-browser-integration`, which cannot reach a sandboxed browser in any case.
+  Gwenview and KWrite stay, and are the remaining gap. P1-D21 points `image/*` and `text/plain` at
+  them, so removing them means either two more Flatpaks in the default set or two common file types
+  that open nothing — a P1-D17 decision rather than a packaging one, and one Phase 2 needs settled.
   Every entry in both lists carries a reason and an Alpine counterpart, because this list is the
   input to Phase 2's selection and an unexplained entry cannot be translated. There is no
   `plasma-desktop-meta` on Fedora — that name belongs to Alpine, which ships both it and
