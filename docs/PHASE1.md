@@ -469,9 +469,12 @@ Each gate is a command and a pass condition.
 - **P1-V13** With `org.tundra.desktop` installed and named in `kdeglobals` under
   `[KDE] LookAndFeelPackage`, a fresh user gets the intended panel layout on first login, and
   `grep -ri plasma /etc/skel` finds no file naming a Plasma applet.
-- **P1-V14** After `scripts/apply.sh` has run twice, `grep -c tundra /etc/zshrc` returns 1, a fresh
-  interactive zsh shows the Tundra prompt and resolves the P1-D12 aliases, and `rpm -Va zsh` reports
-  modifications to `/etc/zshrc` and `/etc/skel/.zshrc` and to nothing else (P1-R07).
+- **P1-V14** After `scripts/apply.sh` has run twice, `grep -c '^# tundra: source' /etc/zshrc`
+  returns 1, a fresh interactive zsh shows the Tundra prompt and resolves the P1-D12 aliases, and
+  `rpm -Va zsh` reports modifications to `/etc/zshrc` and `/etc/skel/.zshrc` and to nothing else
+  (P1-R07). Count the marker comment rather than the string `tundra`: the sourcing block names its
+  own loop variable on three further lines, so a bare `grep -c tundra` returns 4 on a correctly
+  applied system and the gate would fail what it is meant to pass.
 - **P1-V15** `podman run --rm alpine true` succeeds as an unprivileged user and `podman info` reports
   cgroup version 2 and rootless mode. `distrobox create` followed by `distrobox enter` produces a
   shell in which `ldd --version` names glibc.
