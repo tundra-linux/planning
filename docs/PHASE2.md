@@ -426,3 +426,15 @@ Release 1 of Tundra ships when:
   the partition layout, so it settles before the installer (`P2-Q01`) rather than after. A
   defensible v1 answer is to skip both and say so plainly. What is not defensible is shipping and
   leaving readers to assume the signing in `P2-D16` covers more than it does.
+- **P2-Q05** What opens an image and a plain text file? Phase 1 removed the host applications that
+  duplicated its Flatpak set — Firefox, LibreOffice and Okular — because Tundra has no host package
+  manager and an RPM application on the pilot is a difference from the target rather than clutter.
+  Two host applications survived that pass: Gwenview and KWrite, which Phase 1's `mimeapps.list`
+  still points `image/*` and `text/plain` at. The pilot keeps them deliberately, because removing
+  them there would leave two common file types opening nothing while the question is unsettled.
+  On Tundra they cannot exist, so this has to be answered before the application set is frozen.
+  Either the default Flatpak set grows by an image viewer and a text editor, or those associations
+  point at something already in it, or Tundra ships with double-clicking a PNG doing nothing. The
+  last is not defensible for an audience leaving Windows: it is exactly the first-week failure the
+  desktop design exists to prevent. Judge the options on image size, support surface, and whether
+  the chosen applications are ones a migrant recognises.

@@ -288,9 +288,10 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   nothing in the install list is touched, confirmed on the pilot on 2026-09-18. Two deliberate
   casualties: `kf6-threadweaver`, which nothing else wanted once Okular went, and
   `plasma-browser-integration`, which cannot reach a sandboxed browser in any case.
-  Gwenview and KWrite stay, and are the remaining gap. P1-D21 points `image/*` and `text/plain` at
-  them, so removing them means either two more Flatpaks in the default set or two common file types
-  that open nothing — a P1-D17 decision rather than a packaging one, and one Phase 2 needs settled.
+  Gwenview and KWrite stay deliberately. P1-D21 points `image/*` and `text/plain` at them, so
+  removing them here would leave two common file types opening nothing while the replacement is
+  undecided — worse on the pilot than the parity gap it would close. They cannot exist on Tundra,
+  so the question is carried as `P2-Q05` and settled before the application set is frozen.
   Every entry in both lists carries a reason and an Alpine counterpart, because this list is the
   input to Phase 2's selection and an unexplained entry cannot be translated. There is no
   `plasma-desktop-meta` on Fedora — that name belongs to Alpine, which ships both it and

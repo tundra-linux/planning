@@ -45,6 +45,7 @@ The phases are not strictly sequential: `PHASE2.md` carries two Track 0 spikes â
 Alpine under OpenRC, and the EROFS plus RAUC image pipeline â€” that are meant to run *during* Phase 1,
 because they cover the ground the Fedora pilot deliberately does not.
 
-Phase 1 has no open questions left. Two of Phase 2's gate a release: there is no installer decision
-(`P2-Q01`), and no answer yet on whether the running root is verified or Secure Boot supported
-(`P2-Q04`).
+Phase 1 has no open questions left. Three of Phase 2's gate a release: there is no installer
+decision (`P2-Q01`), no answer yet on whether the running root is verified or Secure Boot supported
+(`P2-Q04`), and nothing yet opens an image or a plain text file on a host with no host applications
+(`P2-Q05`).
