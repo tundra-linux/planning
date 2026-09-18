@@ -1,8 +1,14 @@
 # Phase 1 — Fedora pilot
 
-**Status:** building. The pilot VM exists and `tundra-pilot` carries the artifact tree, the script
-corpus and the stock baseline. The desktop design has not been driven through its task checklist,
-and nothing has been applied to a clean install yet.
+**Status:** building. `tundra-pilot` carries the artifact tree, the script corpus and a stock
+baseline, and `scripts/apply.sh` has been run on the pilot: the package delta, the defaults, the
+Flatpak set, the shell, `doas` and the update mechanism are all in place, and a freshly created
+account gets the intended panel from the layout script. Every gate reachable without someone at
+the console passes and is recorded in the pilot's provenance file.
+What remains needs a person in the desktop or a second machine: the P1-D23 task checklist, whether
+each shortcut actually fires, the virtualization gate on vSphere, and the Fedora 45 rebase. The
+baseline also needs re-capturing against the current Plasma version before any shortcut delta is
+trustworthy (P1-R12).
 **Repo:** artifacts live in `tundra-linux/tundra-pilot`. These documents live in
 `tundra-linux/planning`.
 **Reference platform:** Fedora KDE Plasma Desktop 44, fully updated — Plasma 6.7.5, KDE Gear
@@ -200,6 +206,11 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   [KDE's Look and Feel documentation](https://community.kde.org/Plasma/lookAndFeelPackage). The one
   thing to get right locally is that the layout script is what supplies the default panel, so nothing
   in `skel/` ever names a Plasma applet (P1-V13).
+  `contents/defaults` carries the wallpaper and the containment and nothing else. Every other key it
+  could set belongs in `/etc/xdg` instead, because Plasma copies this file into the user's own
+  configuration at first login and that copy then outranks the system defaults forever (P1-R11).
+  Confirmed on the pilot: the session's `XDG_CONFIG_DIRS` literally begins with
+  `~/.config/kdedefaults`, ahead of `/etc/xdg`.
 - **P1-D10** The zsh configuration ships as a **drop-in file**, not as a replacement for the
   distribution's system zshrc. Alpine's `zsh` sources `/etc/zsh/zshrc.d/*.zsh` from its own
   `/etc/zsh/zshrc`, so the artifact is `shell/tundra.zsh` and on Tundra it is a file copy with no
@@ -252,8 +263,8 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   execution catches flag-level differences, so the static half is a command-word allowlist generated
   from `busybox --list` inside the container and checked against the scripts, and the executable half
   is whatever the script corpus can actually be run through.
-  The four scripts in P1-D24 are pilot-only: they call `dnf` and `rpm`, they cannot run in an
-  Alpine container, and they are exempt. The rule's subject is the P1-D27 update mechanism in
+  Everything under `scripts/` is pilot-only: it calls `dnf` and `rpm`, cannot run in an
+  Alpine container, and is exempt. The rule's subject is the P1-D27 update mechanism in
   `target/`, which ships on Tundra and runs under BusyBox. `scripts/lint.sh` distinguishes the two
   classes by directory, and the exemption is recorded rather than assumed.
 - **P1-D15** The Fedora package delta. Install: `zsh`, `busybox`, `ShellCheck`,
@@ -294,11 +305,20 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   invisible until Phase 2, where there is no package manager left to work around them with. No store
   frontend ships. `flatpak-kcm`, which is a permissions settings module rather than a store, is
   allowed.
-- **P1-D18** The capture set is at minimum the panel layout, `kglobalshortcutsrc` (as a delta per
-  P1-D05), `kdeglobals`, `dolphinrc`, `kwinrc`, `plasmarc`, `mimeapps.list`, the fontconfig drop-in,
-  and `gtk-3.0/settings.ini` with `gtk-4.0/settings.ini`. Each capture records the Plasma version per
-  P1-C06. P1-D08 decides how each one is delivered; the panel layout in particular never ships as a
-  copied `plasma-org.kde.plasma.desktop-appletsrc`.
+- **P1-D18** Two classes of artifact, and only one of them is captured.
+  **Captured** from a running session by `scripts/capture.sh`: `kdeglobals`, `dolphinrc`, `kwinrc`,
+  `plasmarc`, and `kglobalshortcutsrc` as a delta per P1-D05. These are files Plasma writes, so the
+  machine is the authority and reading them back is the only way to be sure what a setting produced.
+  **Authored** by hand and never captured: `mimeapps.list`, the fontconfig drop-in, the GTK
+  `settings.ini` files, and `kcminputrc`. Each is either not a KDE-written file at all or, in
+  `kcminputrc`'s case, mostly per-machine input settings — pointer speed, keyboard repeat — where
+  capturing the file whole would drag the pilot's hardware into the tree the way capturing
+  `kglobalshortcutsrc` whole would drag every unrelated Plasma binding.
+  The panel layout is captured into `baseline/` to be read and compared, and never shipped: what
+  ships is the layout script, because a copied `plasma-org.kde.plasma.desktop-appletsrc` freezes one
+  account's panel state and reproduces on no other.
+  Each capture records the Plasma version per P1-C06, and a capture is only meaningful against the
+  version its baseline was taken on (P1-R12).
 - **P1-D19** Containers: rootless **Podman** with **Distrobox**, both packaged on Fedora and in
   Alpine `community`. The decisions that transfer are the subuid and subgid ranges, the container
   storage location, and the default Distrobox image. The cgroup delegation that makes rootless work
@@ -311,10 +331,17 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   entries, not the samba client defaults.
 - **P1-D21** Presentation defaults: default application associations in `mimeapps.list` pointing at
   the P1-D17 Flatpaks, a fontconfig drop-in naming the default sans, serif and monospace families,
-  and the Breeze icon and cursor themes set explicitly. Wallpaper and the Tundra branding ship inside
-  the Look-and-Feel package, which is the only place they can live and still reach a fresh account.
+  and the Breeze icon and cursor themes set explicitly — the icon theme in `kdeglobals` and the
+  cursor theme in `kcminputrc`, both through `/etc/xdg` so they stay updatable (P1-R11). Only the
+  wallpaper and the Tundra branding ship inside the Look-and-Feel package, because a wallpaper is
+  consumed once when the desktop is created and nothing later would change it anyway.
   Fedora's default font packages and Alpine's are different packages under different names, so the
   artifact names families and never packages.
+  Name the Plasma desktop theme by its installed directory rather than by the family it belongs to.
+  The Breeze desktop theme ships as `default`; there is no theme called `breeze`, and naming one
+  produces a run-time fallback with nothing but a log line to show for it. `breeze-light` and
+  `breeze-dark` exist alongside it if a fixed light or dark panel is ever wanted. Read from
+  `/usr/share/plasma/desktoptheme/` on the pilot on 2026-09-18.
 - **P1-D22** Printing and Bluetooth: install CUPS and BlueZ with the Plasma modules that expose them,
   enable the services, and verify as far as a VM allows. The scheduler runs, a print queue accepts a
   job against a network or PDF printer, and the Bluetooth module loads and reports no adapter
@@ -333,29 +360,33 @@ Each is an artifact that exists in the repo when Phase 1 is done.
 
   ```
   tundra-pilot/
-    baseline/                    stock config captured before any change, P1-D05. Never edited
+    LICENSE                      MIT, per G-D02
+    AGENTS.md                    the rules that govern this tree
+    baseline/                    stock config captured before any change, P1-D05. Never edited.
+                                 Valid only against the Plasma version it records (P1-R12)
     xdg/                       → /etc/xdg          system-wide KDE defaults
-      kdeglobals                 theme, colour scheme, LookAndFeelPackage
+      kdeglobals                 colour scheme, widget style, icon theme, LookAndFeelPackage
+      kcminputrc                 cursor theme, and nothing else from that file
       kwinrc                     tiling, window behaviour, shortcuts owned by KWin
       kglobalshortcutsrc         the P1-D05 delta only, never the whole file
       dolphinrc                  P1-D06
-      plasmarc                   P1-D18
+      plasmarc                   the Plasma desktop theme
       mimeapps.list              P1-D21
       gtk-3.0/settings.ini       Breeze-GTK
       gtk-4.0/settings.ini       Breeze-GTK
     look-and-feel/
       org.tundra.desktop/      → /usr/share/plasma/look-and-feel/org.tundra.desktop/
         metadata.json            package identity; see the KDE docs for field semantics
-        contents/defaults        default containment, theme, icons, cursor
+        contents/defaults        wallpaper and default containment only, per P1-R11
         contents/layouts/org.kde.plasma.desktop-layout.js    the P1-D04 panel
-        contents/previews/       screenshots for the theme picker
-        contents/wallpapers/     P1-D21 branding
     fontconfig/
       60-tundra.conf           → /etc/fonts/conf.d/                           P1-D21
     shell/
       tundra.zsh               → /etc/zsh/zshrc.d/ on Tundra                  P1-D10, P1-D11
     skel/
       .zshrc                   → /etc/skel/.zshrc            customization stub only
+    doas/
+      doas.conf                → /etc/doas.conf                               P1-D26
     flatpak/
       apps.txt                   P1-D17, one Flatpak reference per line
     packages/
@@ -364,10 +395,14 @@ Each is an artifact that exists in the repo when Phase 1 is done.
     scripts/                     pilot-only. Runs on Fedora, calls dnf and rpm, exempt from P1-D14
       apply.sh                   idempotent; what P1-V11 runs
       capture.sh                 pulls live config back into the tree, records Plasma version
+      common.sh                  shared helpers; sourced, never executed
       lint.sh                    P1-D13 and P1-D14, invoked by the pre-commit hook
       translate-check.sh         P1-V21
-    target/                      ships on Tundra. BusyBox vocabulary only, P1-D14. The P1-D27
-                                 update mechanism
+      hooks/pre-commit           installed into .git/hooks by apply.sh
+    target/                      ships on Tundra. BusyBox vocabulary only, P1-D14
+      tundra-update              the P1-D27 unattended updater
+      tundra-update-notify       the login-time notifier
+      tundra-update-notify.desktop   → /etc/xdg/autostart/
     docs/
       provenance.md              P1-O04: per key, which Plasma version, and whether it takes
                                  from /etc/xdg or needs /etc/skel
@@ -376,16 +411,28 @@ Each is an artifact that exists in the repo when Phase 1 is done.
       translation.md             P1-O15: every file, its Alpine destination, and any adaptation
       checklist.md               P1-D23: the task checklist and its results
   ```
+
+  `contents/previews/` and `contents/wallpapers/` are not in the tree yet. The package references a
+  wallpaper by name and nothing supplies it, which is the open half of P1-O11.
 - **P1-D25** `scripts/apply.sh` is the only supported way to put this repo on a machine. It runs as
   root, takes no arguments in the default path, and changes nothing on a second run. It covers, in
   order: the package delta, `/etc/xdg`, the Look-and-Feel package, fontconfig, the zsh drop-in and
-  its Fedora sourcing hook, `/etc/skel`, the Flathub remote and the application manifest, services
-  and group membership, and the pre-commit hook. It never writes to any `~/.config`, because a script
+  its Fedora sourcing hook, `/etc/skel`, `doas.conf`, the Flathub remote and the application
+  manifest, services and group membership, the P1-D27 update mechanism and its pilot timer, and the
+  pre-commit hook. It never writes to any `~/.config`, because a script
   that edits the live user's configuration hides exactly the failures P1-V12 exists to find.
-  `--dry-run` prints what it would change and exits. `scripts/capture.sh` is the other direction and
+  `--dry-run` prints what it would change and exits, and is worth running first on any new machine:
+  it is what caught the script reconciling `/etc/xdg` against the tree and proposing to delete sixty
+  files it did not own (P1-R10).
+  Idempotence is by content comparison rather than marker files, because a marker lies the moment
+  someone edits the destination by hand, which on a pilot is exactly what happens. Only directories
+  Tundra owns outright are reconciled; shared ones are copied into and never pruned.
+  `scripts/capture.sh` is the other direction and
   the only thing that writes into the tree from a running system: it copies the P1-D18 set out of
   `~/.config`, diffs `kglobalshortcutsrc` against `baseline/`, and appends the running Plasma version
-  to the provenance record.
+  to the provenance record. The diff compares the active binding only, since Plasma rewrites the
+  default and friendly-name fields on its own schedule and comparing whole lines reports that churn
+  as customisation.
 - **P1-D26** Privilege escalation is **`doas`**, and `sudo` is not carried on Tundra. Alpine ships
   `doas` in `main`, which gets roughly two years of support; its `sudo` is in `community`, which is
   supported only on the newest stable branch, so choosing `sudo` would put the escalation tool on
@@ -529,12 +576,17 @@ Phase 1 is complete when all of the following hold:
 1. Check the development host for locked virtualization-based security before building anything.
    That single fact decides whether P1-V06 runs on the pilot or needs a second guest (P1-D02), and
    it is far cheaper to learn now than at step 5.
-2. Build the pilot VM: Fedora KDE 44 on VMware Workstation, UEFI firmware. Snapshot it clean on
-   first boot, before any configuration. Every later step that wants a clean install reverts to that
-   snapshot instead of reinstalling, which is what makes P1-V11 cheap enough to run weekly (P1-R05).
+2. Build the pilot VM: Fedora KDE 44 on VMware Workstation, UEFI firmware. **Run `dnf upgrade` and
+   reboot before doing anything else**, so the machine is on the reference platform rather than on
+   whatever the install media carried. Then snapshot it clean, before any configuration. Every later
+   step that wants a clean install reverts to that snapshot instead of reinstalling, which is what
+   makes P1-V11 cheap enough to run weekly (P1-R05).
 3. Capture the stock `kglobalshortcutsrc`, `kdeglobals` and panel state into `baseline/` before
    changing anything. This baseline is what makes P1-D05's delta approach possible, and it cannot be
-   recovered later.
+   recovered later: once `/etc/xdg` is seeded there is no account on the machine that still sees
+   stock defaults. The upgrade in step 2 has to come first for the same reason in reverse — a
+   baseline captured on one Plasma version reports every upstream change as a customisation when
+   used on another (P1-R12).
 4. Apply the package delta (P1-D15, P1-D16, P1-D19) and verify P1-V01, P1-V03, P1-V05, P1-V07.
 5. Build the vSphere guest from the same checkout and clear P1-V06 there (P1-D02, P1-R09). Do it
    here rather than at the end. P1-V06 is what proves the P1-D16 recipe actually works, and finding
