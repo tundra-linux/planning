@@ -5,10 +5,13 @@ corpus and the stock baseline. The desktop design has not been driven through it
 and nothing has been applied to a clean install yet.
 **Repo:** artifacts live in `tundra-linux/tundra-pilot`. These documents live in
 `tundra-linux/planning`.
-**Reference platform:** Fedora KDE Plasma Desktop 44 — Plasma 6.6.4, KDE Gear 25.12.3, KDE
-Frameworks 6.25.0. Read from the running pilot with `rpm -q` on 2026-09-18. Note that
-`plasmashell --version` aborts without a display, so the package query is the reliable oracle when
-reading this over ssh.
+**Reference platform:** Fedora KDE Plasma Desktop 44 — Plasma 6.7.5, KDE Gear 25.12.3, KDE
+Frameworks 6.25.0. `plasma-desktop` and `plasma-workspace` 6.7.5-1.fc44 are in the `updates`
+repository, read with `dnf list --available` on the pilot on 2026-09-18, so a machine that has been
+updated lands there. Query the package manager rather than the running shell: `plasmashell
+--version` aborts without a display, which is exactly the condition when reading over ssh. The
+version a given capture was taken against is recorded per key in the pilot's provenance record,
+because an installed machine can sit behind the repository and the difference is invisible.
 **Pilot host:** a VMware Workstation guest for the desktop work — EFI, 4 vCPU, 8 GB, with 3D
 acceleration and an audio device, both of which P1-V08 needs — plus a vSphere guest that exists
 only to clear the virtualization gate (P1-D02).
@@ -119,9 +122,12 @@ Each is an artifact that exists in the repo when Phase 1 is done.
 
 ## Decisions
 
-- **P1-D01** Pilot on **Fedora KDE Plasma Desktop 44**. The installed pilot runs Plasma
-  6.6.4-1.fc44, read with `rpm -q` on 2026-09-18, which is also the newest f44 build
-  `mdapi.fedoraproject.org` reports. Rejected: Fedora Kinoite or a `bootc` image, which would also
+- **P1-D01** Pilot on **Fedora KDE Plasma Desktop 44**, kept updated. Its `updates` repository
+  carries Plasma 6.7.5-1.fc44, so a freshly updated machine lands on 6.7.5 and that is the
+  reference platform. A pilot left un-updated sits wherever its install media put it, which is a
+  different system from the one these artifacts claim to be validated against, so updating is part
+  of maintaining the pilot rather than an optional tidy-up. Rejected: Fedora Kinoite or a `bootc`
+  image, which would also
   rehearse the image and atomic-update half of Tundra. Rejected because the pilot's job is to
   iterate on desktop configuration quickly, and an immutable base makes that loop slower. The cost
   is that Phase 1 rehearses none of the image machinery, which Phase 2 absorbs through its Track 0
@@ -413,12 +419,13 @@ Severity is the cost if the risk lands, not the odds of it landing.
 | P1-R01 | **Fedora 44's Plasma Setup first-run wizard may overwrite seeded defaults.** Plasma Setup is new in this release and its interaction with a seeded `/etc/skel` and `/etc/xdg` is unknown. | Medium | P1-V10 explicitly records whether the wizard ran and what it changed |
 | P1-R02 | **No parser in the chain rejects a bashism.** Both distributions build BusyBox with `CONFIG_ASH_BASH_COMPAT=y`, so `busybox ash -n` parses `[[` and `source` happily, and dropping `dash` (P1-D13) removes the one tool that did not. The parse step now catches syntax errors and nothing else. | Medium | `checkbashisms` and `shellcheck -s sh` are the tools doing this work and both run on every script. The exposure is a bashism that passes both and then breaks on a BusyBox built without bash-compat, which is a configuration Tundra controls and can simply not adopt. If Fedora's `busybox` omits the `ash` applet (P1-V03), the container from P1-D14 covers the parse too |
 | P1-R03 | **Plasma's `/etc/xdg` defaults coverage is not uniform.** Some KCMs write keys they do not read back as system defaults, so a value in `/etc/xdg` may be silently ignored while the identical value in `~/.config` works. | Medium | P1-V12 establishes empirically which keys take. Anything that does not falls back to `/etc/skel`, recorded in `docs/provenance.md` as reaching new accounts only |
-| P1-R04 | **Plasma version skew between the pilot and Alpine.** The pilot carries Plasma 6.6.4 with KDE Gear 25.12.3; Alpine v3.24 carries Plasma 6.6.6 with KDE Gear 26.04.2. The pilot is behind on both, which is the safer direction — a key that works here generally still exists there — but it is not safe in general, because a key can be renamed as easily as added. Pilot read 2026-09-18, Alpine 2026-09-14. | Medium | The provenance discipline in P1-C06 and the translation record in P1-O15. Every captured key gets checked against the Alpine package version before Phase 2 consumes it. The P1-D03 rebase to Fedora 45 widens this gap rather than closing it |
+| P1-R04 | **Plasma version skew between the pilot and Alpine, running in both directions.** The pilot targets Plasma 6.7.5 with KDE Gear 25.12.3; Alpine v3.24 carries Plasma 6.6.6 with KDE Gear 26.04.2. The pilot is a minor release ahead on Plasma and a release behind on Gear, so a `kwinrc` key may not exist on the target and a `dolphinrc` key may have moved on it. A third direction bites in practice: the pilot itself can sit behind its own repository, so "the pilot's version" is a fact to read rather than assume. Fedora read 2026-09-18, Alpine 2026-09-14. | Medium | The provenance discipline in P1-C06 and the translation record in P1-O15. Every captured key gets checked against the Alpine package version before Phase 2 consumes it. The P1-D03 rebase to Fedora 45 widens this gap rather than closing it |
 | P1-R05 | **The pilot machine is not the deliverable.** The characteristic failure mode of this phase is making one install pleasant to use rather than making the configuration reproducible. A setting changed by hand in System Settings and never captured is work that has to be done twice, and it is invisible, because the machine looks right. | High | P1-V11 is the gate that catches it, and it is worth running weekly from the start rather than once at the end. `scripts/capture.sh` exists so that capturing is cheaper than not capturing |
 | P1-R06 | **A VM proves nothing hardware-shaped.** Suspend and resume, backlight, wifi, discrete graphics, real printers and real Bluetooth adapters are untestable on the pilot, and they are where a desktop distribution usually breaks. | Medium | Accepted deliberately in P1-D02. P1-D22 verifies these subsystems only as far as services and panels, and the hardware half is named as Phase 2 work under `P2-D17` rather than left to be discovered there |
 | P1-R07 | **The pilot writes to a package-owned config file.** Fedora's `zsh` owns `/etc/zshrc` and `/etc/skel/.zshrc` as `%config(noreplace)`; the apply script appends to the first and replaces the second. `noreplace` means updates leave the modification alone and drop an `.rpmnew` beside it, so nothing breaks quietly, but `rpm -V zsh` reports both files forever. | Low | P1-V14 asserts the append is present exactly once and that no other package-owned file is modified. The condition does not exist on Tundra, where the artifact is a plain drop-in |
-| P1-R08 | **The Fedora 45 rebase moves Plasma underneath the provenance record.** Every key captured against 6.6.4 is re-validated after the rebase or it is a claim about a version the pilot no longer runs. | Medium | P1-V20 makes the rebase a gate with a recorded diff rather than an event that happens to the machine |
+| P1-R08 | **The Fedora 45 rebase moves Plasma underneath the provenance record.** Every key captured against 6.7.5 is re-validated after the rebase or it is a claim about a version the pilot no longer runs. | Medium | P1-V20 makes the rebase a gate with a recorded diff rather than an event that happens to the machine |
 | P1-R09 | **The gates are cleared on two hosts that can drift apart.** P1-V06 runs on a vSphere guest and everything else on the Workstation pilot (P1-D02). A package delta applied to one and not the other makes P1-V06 a statement about a system that is not the pilot, and the failure is quiet because both machines pass their own gates. | Low | Both guests are built from the same repo checkout by `scripts/apply.sh`, so the virt stack under test is the P1-D16 one on either. The vSphere guest is disposable and rebuilt rather than maintained, which is cheaper than keeping two machines in step. The provenance record names the host that cleared each gate |
+| P1-R10 | **`scripts/apply.sh` writes to directories it does not own.** `/etc/xdg`, `/etc/fonts/conf.d` and `/etc/skel` all belong to other packages as well as to Tundra. A copy into them is safe; anything that reconciles them against the tree is not, because everything Tundra does not carry looks removable. The first execution of the script would have deleted about sixty files from `/etc/xdg`, including the `plasmashell` autostart entry and every application menu. | High | Deletion is confined to `install_tree_exclusive`, used only for the Look-and-Feel package directory, which nothing else writes to. Shared directories get copy-only. `--dry-run` is what caught this and is the reason it is the first thing run against any new machine |
 
 ## Verification
 
