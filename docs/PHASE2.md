@@ -108,8 +108,8 @@ delta is documented with reasons and Alpine counterparts (P1-O07), and the KVM r
 defaults (P1-O11), and the container, network-share and peripheral recipes (P1-O12, P1-O13,
 P1-O14). The translation record (P1-O15) is what makes the handoff mechanical rather than a reading
 exercise, so it gates entry as much as any of them. Phase 1's remaining exit conditions apply too:
-its gates pass on a clean install, the provenance record is complete, and P1-Q01 is answered, since
-P2-D07 implements the answer.
+its gates pass on a clean install, the provenance record is complete, and the P1-D27 update
+mechanism works end to end, since P2-D07 ships it rather than designing it.
 
 Track 0 does not wait for any of this.
 
@@ -237,7 +237,7 @@ discovered at integration time.
   `xdg-desktop-portal` and `xdg-desktop-portal-kde`; no Discover, no store frontend. Bind
   `/var/lib/flatpak` to the persistent partition. Flatpak runtimes carry their own glibc, which is
   what makes a musl desktop host tractable at all. The update path for those applications is
-  P1-Q01, answered in Phase 1 and implemented here.
+  P1-D27, decided in Phase 1 and implemented here.
 - **P2-D08** Podman rootless plus Distrobox, both packaged in Alpine `community` (Distrobox
   1.8.2.5). Set `rc_cgroup_mode=unified`, provision `/etc/subuid` and `/etc/subgid` at user
   creation, and put container storage on the persistent partition.

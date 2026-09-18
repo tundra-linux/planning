@@ -1,11 +1,16 @@
 # Phase 1 — Fedora pilot
 
-**Status:** design, nothing built.
-**Repo:** artifacts land in `tundra-linux/tundra-pilot`, empty as of 2026-09-14. These documents
-live in `tundra-linux/planning`.
-**Reference platform:** Fedora KDE Plasma Desktop 44 — Plasma 6.7.5, KDE Gear 25.12.3, KDE
-Frameworks 6.25.0. Versions read from `packages.fedoraproject.org` on 2026-09-14.
-**Pilot host:** a VMware Workstation guest for the desktop work, plus a vSphere guest that exists
+**Status:** building. The pilot VM exists and `tundra-pilot` carries the artifact tree, the script
+corpus and the stock baseline. The desktop design has not been driven through its task checklist,
+and nothing has been applied to a clean install yet.
+**Repo:** artifacts live in `tundra-linux/tundra-pilot`. These documents live in
+`tundra-linux/planning`.
+**Reference platform:** Fedora KDE Plasma Desktop 44 — Plasma 6.6.4, KDE Gear 25.12.3, KDE
+Frameworks 6.25.0. Read from the running pilot with `rpm -q` on 2026-09-18. Note that
+`plasmashell --version` aborts without a display, so the package query is the reliable oracle when
+reading this over ssh.
+**Pilot host:** a VMware Workstation guest for the desktop work — EFI, 4 vCPU, 8 GB, with 3D
+acceleration and an audio device, both of which P1-V08 needs — plus a vSphere guest that exists
 only to clear the virtualization gate (P1-D02).
 
 Phase 1 does not produce an operating system. It produces a version-controlled set of
@@ -114,12 +119,13 @@ Each is an artifact that exists in the repo when Phase 1 is done.
 
 ## Decisions
 
-- **P1-D01** Pilot on **Fedora KDE Plasma Desktop 44**. As of 2026-09-14 its stable updates carry
-  Plasma 6.7.5-1.fc44; the 6.6.4 build is still in `updates-testing`, so a freshly updated machine
-  lands on 6.7.5. Rejected: Fedora Kinoite or a `bootc` image, which would also rehearse the image
-  and atomic-update half of Tundra. Rejected because the pilot's job is to iterate on desktop
-  configuration quickly, and an immutable base makes that loop slower. The cost is that Phase 1
-  rehearses none of the image machinery, which Phase 2 absorbs through its Track 0 spikes.
+- **P1-D01** Pilot on **Fedora KDE Plasma Desktop 44**. The installed pilot runs Plasma
+  6.6.4-1.fc44, read with `rpm -q` on 2026-09-18, which is also the newest f44 build
+  `mdapi.fedoraproject.org` reports. Rejected: Fedora Kinoite or a `bootc` image, which would also
+  rehearse the image and atomic-update half of Tundra. Rejected because the pilot's job is to
+  iterate on desktop configuration quickly, and an immutable base makes that loop slower. The cost
+  is that Phase 1 rehearses none of the image machinery, which Phase 2 absorbs through its Track 0
+  spikes.
 - **P1-D02** The pilot runs in **two guests**: a VMware Workstation guest carrying everything except
   the virtualization gate, and a **vSphere guest carrying that one gate**. The split is forced,
   not chosen. Nested virtualization is unavailable under Workstation on the development host,
@@ -238,11 +244,10 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   execution catches flag-level differences, so the static half is a command-word allowlist generated
   from `busybox --list` inside the container and checked against the scripts, and the executable half
   is whatever the script corpus can actually be run through.
-  This rule has no subject yet, and saying so is the point. All four scripts in P1-D24 are pilot-only:
-  they call `dnf` and `rpm`, they cannot run in an Alpine container, and they are exempt. The first
-  target-bound script will be whatever answers P1-Q01, because a Flatpak update wrapper ships on
-  Tundra and runs under BusyBox. `scripts/lint.sh` distinguishes the two classes by directory, and
-  the exemption is recorded rather than assumed.
+  The four scripts in P1-D24 are pilot-only: they call `dnf` and `rpm`, they cannot run in an
+  Alpine container, and they are exempt. The rule's subject is the P1-D27 update mechanism in
+  `target/`, which ships on Tundra and runs under BusyBox. `scripts/lint.sh` distinguishes the two
+  classes by directory, and the exemption is recorded rather than assumed.
 - **P1-D15** The Fedora package delta. Install: `zsh`, `busybox`, `ShellCheck`,
   `devscripts-checkbashisms`, the virtualization stack from P1-D16, and the container stack from
   P1-D19. No `dash`, per P1-D13. Remove: `plasma-discover`, `plasma-discover-notifier`, `PackageKit`,
@@ -267,9 +272,15 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   password-less access, so the pilot needs no polkit artifact of its own. Read from `libvirt.spec` on
   2026-09-14. Whether Alpine ships the same rule is a Phase 2 question and is recorded as one in the
   translation record.
-- **P1-D17** Applications ship as **Flatpaks**, installed system-wide from Flathub. The baseline set
-  is `org.chromium.Chromium`, `com.vscodium.codium` and `org.gimp.GIMP`, all three confirmed present
-  on Flathub on 2026-09-14. The manifest is `flatpak/apps.txt`, one reference per line, and the apply
+- **P1-D17** Applications ship as **Flatpaks**, installed system-wide from Flathub. The set is
+  `org.chromium.Chromium`, `com.vscodium.codium`, `org.gimp.GIMP`, `org.libreoffice.LibreOffice`,
+  `org.kde.okular` and `org.videolan.VLC`, all six confirmed present on Flathub on 2026-09-18. A
+  browser, an editor and an image editor cover the pilot's verification needs; the last three are
+  what a Windows migrant's first week actually contains, because a machine that cannot open a PDF,
+  a spreadsheet or a video reads as broken rather than as minimal. The set stops there and Flathub
+  covers the rest, which is one search away. Flatpaks live on the persistent partition rather than
+  in the image, so the cost of each addition is install time and support surface, not image size.
+  The manifest is `flatpak/apps.txt`, one reference per line, and the apply
   script adds the Flathub remote and installs from it. Without real Flatpaks on the machine the
   portal and PipeWire checks test nothing, and the Flatpak-versus-host theming problems stay
   invisible until Phase 2, where there is no package manager left to work around them with. No store
@@ -347,8 +358,8 @@ Each is an artifact that exists in the repo when Phase 1 is done.
       capture.sh                 pulls live config back into the tree, records Plasma version
       lint.sh                    P1-D13 and P1-D14, invoked by the pre-commit hook
       translate-check.sh         P1-V21
-    target/                      ships on Tundra. BusyBox vocabulary only, P1-D14. Empty until
-                                 P1-Q01 is answered
+    target/                      ships on Tundra. BusyBox vocabulary only, P1-D14. The P1-D27
+                                 update mechanism
     docs/
       provenance.md              P1-O04: per key, which Plasma version, and whether it takes
                                  from /etc/xdg or needs /etc/skel
@@ -367,6 +378,31 @@ Each is an artifact that exists in the repo when Phase 1 is done.
   the only thing that writes into the tree from a running system: it copies the P1-D18 set out of
   `~/.config`, diffs `kglobalshortcutsrc` against `baseline/`, and appends the running Plasma version
   to the provenance record.
+- **P1-D26** Privilege escalation is **`doas`**, and `sudo` is not carried on Tundra. Alpine ships
+  `doas` in `main`, which gets roughly two years of support; its `sudo` is in `community`, which is
+  supported only on the newest stable branch, so choosing `sudo` would put the escalation tool on
+  the short support cycle for no gain. The artifact is a single `/etc/doas.conf` permitting the
+  `wheel` group with `persist`, identical on both systems: Fedora packages the same program as
+  `opendoas` 6.8.2-10.fc44, read from `mdapi.fedoraproject.org` on 2026-09-18. The pilot does not
+  remove Fedora's `sudo`, which `dnf` and RPM workflows expect. Rejected: Alpine's
+  `doas-sudo-shim`, which provides a `sudo` command that calls `doas`. It would absorb pasted
+  commands and muscle memory, at the cost of documentation that has to hedge about which name a
+  reader has and an escalation path with two spellings. One name is worth more than the
+  convenience.
+- **P1-D27** Flatpak applications update through **an unattended periodic job, a login-time
+  notification, and a CLI wrapper**, which Phase 2 implements. No single piece
+  meets all three criteria. The periodic job is what gets a security fix onto a machine nobody is
+  administering, which is the whole reason the question exists. The notification is what lets a
+  user see what changed, and it has to be a separate program because the update runs as root and
+  cannot reach anyone's session bus; it is an XDG autostart entry, not a user service unit, so it
+  works on a system with no systemd. The wrapper is the manual path and is the same script the
+  timer runs. The schedule takes the Alpine shape — `/etc/periodic/daily`, run by BusyBox `crond` —
+  and the pilot adapts by generating a systemd timer in `scripts/apply.sh`, so nothing
+  systemd-shaped enters an artifact (P1-C04). Total mechanism is three short scripts, which is what
+  keeps it affordable under `G-C01`. Rejected: reinstating one graphical frontend for Flatpak
+  alone, which costs no code but contradicts the no-store-frontend position and drags PackageKit
+  back in. Rejected: a CLI wrapper alone, which is the cheapest option and fails the first
+  criterion outright.
 
 ## Risks
 
@@ -377,11 +413,11 @@ Severity is the cost if the risk lands, not the odds of it landing.
 | P1-R01 | **Fedora 44's Plasma Setup first-run wizard may overwrite seeded defaults.** Plasma Setup is new in this release and its interaction with a seeded `/etc/skel` and `/etc/xdg` is unknown. | Medium | P1-V10 explicitly records whether the wizard ran and what it changed |
 | P1-R02 | **No parser in the chain rejects a bashism.** Both distributions build BusyBox with `CONFIG_ASH_BASH_COMPAT=y`, so `busybox ash -n` parses `[[` and `source` happily, and dropping `dash` (P1-D13) removes the one tool that did not. The parse step now catches syntax errors and nothing else. | Medium | `checkbashisms` and `shellcheck -s sh` are the tools doing this work and both run on every script. The exposure is a bashism that passes both and then breaks on a BusyBox built without bash-compat, which is a configuration Tundra controls and can simply not adopt. If Fedora's `busybox` omits the `ash` applet (P1-V03), the container from P1-D14 covers the parse too |
 | P1-R03 | **Plasma's `/etc/xdg` defaults coverage is not uniform.** Some KCMs write keys they do not read back as system defaults, so a value in `/etc/xdg` may be silently ignored while the identical value in `~/.config` works. | Medium | P1-V12 establishes empirically which keys take. Anything that does not falls back to `/etc/skel`, recorded in `docs/provenance.md` as reaching new accounts only |
-| P1-R04 | **Plasma version skew between the pilot and Alpine, running in both directions.** Fedora 44 carries Plasma 6.7.5 with KDE Gear 25.12.3; Alpine v3.24 carries Plasma 6.6.6 with KDE Gear 26.04.2. The pilot is a minor release ahead on Plasma and a release behind on Gear, so a `kwinrc` key may not exist on the target and a `dolphinrc` key may have moved on it. Read 2026-09-14. | Medium | The provenance discipline in P1-C06 and the translation record in P1-O15. Every captured key gets checked against the Alpine package version before Phase 2 consumes it. The P1-D03 rebase to Fedora 45 widens this gap rather than closing it |
+| P1-R04 | **Plasma version skew between the pilot and Alpine.** The pilot carries Plasma 6.6.4 with KDE Gear 25.12.3; Alpine v3.24 carries Plasma 6.6.6 with KDE Gear 26.04.2. The pilot is behind on both, which is the safer direction — a key that works here generally still exists there — but it is not safe in general, because a key can be renamed as easily as added. Pilot read 2026-09-18, Alpine 2026-09-14. | Medium | The provenance discipline in P1-C06 and the translation record in P1-O15. Every captured key gets checked against the Alpine package version before Phase 2 consumes it. The P1-D03 rebase to Fedora 45 widens this gap rather than closing it |
 | P1-R05 | **The pilot machine is not the deliverable.** The characteristic failure mode of this phase is making one install pleasant to use rather than making the configuration reproducible. A setting changed by hand in System Settings and never captured is work that has to be done twice, and it is invisible, because the machine looks right. | High | P1-V11 is the gate that catches it, and it is worth running weekly from the start rather than once at the end. `scripts/capture.sh` exists so that capturing is cheaper than not capturing |
 | P1-R06 | **A VM proves nothing hardware-shaped.** Suspend and resume, backlight, wifi, discrete graphics, real printers and real Bluetooth adapters are untestable on the pilot, and they are where a desktop distribution usually breaks. | Medium | Accepted deliberately in P1-D02. P1-D22 verifies these subsystems only as far as services and panels, and the hardware half is named as Phase 2 work under `P2-D17` rather than left to be discovered there |
 | P1-R07 | **The pilot writes to a package-owned config file.** Fedora's `zsh` owns `/etc/zshrc` and `/etc/skel/.zshrc` as `%config(noreplace)`; the apply script appends to the first and replaces the second. `noreplace` means updates leave the modification alone and drop an `.rpmnew` beside it, so nothing breaks quietly, but `rpm -V zsh` reports both files forever. | Low | P1-V14 asserts the append is present exactly once and that no other package-owned file is modified. The condition does not exist on Tundra, where the artifact is a plain drop-in |
-| P1-R08 | **The Fedora 45 rebase moves Plasma underneath the provenance record.** Every key captured against 6.7.5 is re-validated after the rebase or it is a claim about a version the pilot no longer runs. | Medium | P1-V20 makes the rebase a gate with a recorded diff rather than an event that happens to the machine |
+| P1-R08 | **The Fedora 45 rebase moves Plasma underneath the provenance record.** Every key captured against 6.6.4 is re-validated after the rebase or it is a claim about a version the pilot no longer runs. | Medium | P1-V20 makes the rebase a gate with a recorded diff rather than an event that happens to the machine |
 | P1-R09 | **The gates are cleared on two hosts that can drift apart.** P1-V06 runs on a vSphere guest and everything else on the Workstation pilot (P1-D02). A package delta applied to one and not the other makes P1-V06 a statement about a system that is not the pilot, and the failure is quiet because both machines pass their own gates. | Low | Both guests are built from the same repo checkout by `scripts/apply.sh`, so the virt stack under test is the P1-D16 one on either. The vSphere guest is disposable and rebuilt rather than maintained, which is cheaper than keeping two machines in step. The provenance record names the host that cleared each gate |
 
 ## Verification
@@ -443,26 +479,34 @@ Each gate is a command and a pass condition.
 - **P1-V19** On a clean install, `scripts/apply.sh` leaves every reference in `flatpak/apps.txt`
   present in `flatpak list --system --app` and visible in the Kickoff menu.
 - **P1-V20** After rebasing the pilot to Fedora 45, `scripts/apply.sh` runs clean and P1-V01 through
-  P1-V19 pass, P1-V06 on a vSphere guest rebased alongside it and the rest on the Workstation pilot
-  (P1-D02). Naming the split matters here: this gate is stated as a range, and a range silently
-  asserts that one machine can clear all of it. Every gate that needed a change in order to pass is
-  recorded in the provenance record against the new Plasma version (P1-D03, P1-R08).
+  P1-V19 and P1-V22 through P1-V23 pass, P1-V06 on a vSphere guest rebased alongside it and the
+  rest on the Workstation pilot (P1-D02). Naming the split matters here: this gate is stated as a
+  range, and a range silently asserts that one machine can clear all of it. Every gate that needed
+  a change in order to pass is recorded in the provenance record against the new Plasma version
+  (P1-D03, P1-R08).
 - **P1-V21** `scripts/translate-check.sh` exits 0, having confirmed that every file in the tree
   outside `baseline/` and `docs/` has an entry in `docs/translation.md` naming its Alpine
   destination. This is what makes P1-C03 enforceable.
+- **P1-V22** `doas -C /etc/doas.conf` reports the file parses, a member of `wheel` runs
+  `doas id -u` and gets `0` after one password prompt, a second `doas` inside the persist window
+  does not prompt again, and a user outside `wheel` is refused (P1-D26).
+- **P1-V23** With the P1-D27 mechanism installed, running the update by hand reports what it
+  changed and writes the state file; a login after it produces exactly one desktop notification
+  naming the changed applications; a second login with no intervening update produces none. On the
+  pilot, `systemctl list-timers tundra-update.timer` shows it scheduled.
 
 ## Definition of done
 
 Phase 1 is complete when all of the following hold:
 
 1. P1-O01 through P1-O15 exist in the repo.
-2. P1-V01 through P1-V21 pass on a clean Fedora KDE install performed from the repo: on Fedora 45 if
+2. P1-V01 through P1-V23 pass on a clean Fedora KDE install performed from the repo: on Fedora 45 if
    it has shipped, on Fedora 44 if it has not. P1-V06 passes on the vSphere guest and the rest on
    the Workstation pilot (P1-D02); the provenance record names which host cleared each.
 3. The provenance record from P1-O04 lists every captured key, the Plasma version it was captured
    against, and whether it takes from `/etc/xdg` or needs `/etc/skel`.
 4. The translation record from P1-O15 covers every file in the tree.
-5. P1-Q01 is answered, because Phase 2 implements it.
+5. The P1-D27 update mechanism works end to end, because Phase 2 ships it rather than designing it.
 6. The task checklist in P1-D23 has been run end to end at least twice, on separate iterations of the
    design, with results recorded both times.
 
@@ -499,20 +543,7 @@ Phase 1 is complete when all of the following hold:
 
 ## Open questions
 
-- **P1-Q01** How do Flatpak applications get updated? Phase 2 removes Discover and every store
-  frontend, which leaves no answer for the thing users update most often. Options: a background timer
-  plus a notification, a small Tundra CLI wrapper, or reinstating one graphical frontend for Flatpak
-  alone. The "no app store" position is a host-minimalism decision rather than a user-experience one,
-  and asking people to run a command to get browser security updates does not fit the audience.
-  Decide it here, where it can be tried on a real desktop, even though it ships in Phase 2. Judge the
-  options on three things: whether an unattended machine gets security updates, whether the user can
-  see what changed, and how much of the mechanism has to be written and maintained under `G-C01`.
-- **P1-Q02** Does the default application set stop at the P1-D17 baseline? A browser, an editor and
-  an image editor cover the pilot's verification needs and do not cover a Windows migrant's first
-  week: there is no office suite, no PDF reader and no media player. Either Tundra ships a thin set
-  and Flathub covers the rest, which is defensible, or the set grows and every addition is an
-  image-size and support-surface cost. Settle it before P1-O10 is called done.
-- **P1-Q03** What escalates privilege? Fedora uses `sudo`; Alpine ships `doas` in `main` and `sudo`
-  in `community`. This sits above the init line and is therefore Phase 1's to settle, it affects the
-  zsh configuration and every script in the corpus, and it is cheap to choose now and expensive to
-  change once documentation references it.
+None. The three that stood here — the Flatpak update path, the size of the default application
+set, and what escalates privilege — are settled in P1-D27, P1-D17 and P1-D26 respectively. All
+three were cheap to decide now and expensive to change once documentation and scripts reference
+them.

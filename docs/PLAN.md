@@ -7,8 +7,8 @@ and Podman with Distrobox is the escape valve for anything that needs a glibc us
 The shell is KDE Plasma through Phases 1 and 2. Phase 3 is the intent to replace it with something
 written for this project, and is direction rather than design.
 
-**Status:** design, nothing built.
-**Last substantive revision:** 2026-09-14.
+**Status:** Phase 1 is building; Phases 2 and 3 are design.
+**Last substantive revision:** 2026-09-18.
 
 ## Repositories
 
@@ -18,7 +18,6 @@ tundra-linux/
     docs/         PLAN.md, PHASE1.md, PHASE2.md, PHASE3.md
     AGENTS.md     document conventions
   tundra-pilot/   Phase 1 artifacts, the configuration tree in PHASE1.md P1-D24
-                  (empty as of 2026-09-14)
 ```
 
 Phase 2 has no build repository yet. It needs one before Track 0 Spike B produces anything worth

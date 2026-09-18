@@ -23,7 +23,6 @@ What Tundra is and where it is going: [`PLAN.md`](docs/PLAN.md). Rules for worki
 tundra-linux/
   planning/       this repo — docs/ holds the plan and the three phase documents
   tundra-pilot/   Phase 1 artifacts — the configuration tree in PHASE1.md P1-D24
-                  (empty as of 2026-09-14)
 ```
 
 Phase 2 has no build repository yet. `PHASE2.md` P2-D01 describes the `aports` overlay layout that
@@ -31,12 +30,15 @@ goes in one when it exists.
 
 ## Status
 
-Design. Nothing is built, and no decision here has survived contact with hardware.
+Phase 1 is building. The pilot VM exists and `tundra-pilot` carries the artifact tree, the script
+corpus and the stock Plasma baseline it was captured from. The desktop design has not been driven
+through its task checklist, nothing has been applied to a clean install, and no decision anywhere
+here has survived contact with real hardware. Phases 2 and 3 are still design.
 
-The two phases are not strictly sequential: `PHASE2.md` carries two Track 0 spikes — Plasma on
+The phases are not strictly sequential: `PHASE2.md` carries two Track 0 spikes — Plasma on
 Alpine under OpenRC, and the EROFS plus RAUC image pipeline — that are meant to run *during* Phase 1,
 because they cover the ground the Fedora pilot deliberately does not.
 
-Four questions are open and two of them gate a release: there is no installer decision
+Phase 1 has no open questions left. Two of Phase 2's gate a release: there is no installer decision
 (`P2-Q01`), and no answer yet on whether the running root is verified or Secure Boot supported
 (`P2-Q04`).
