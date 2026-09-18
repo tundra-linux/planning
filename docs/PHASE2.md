@@ -161,6 +161,26 @@ discovered at integration time.
   decision more than dependency count does.
 - **P2-C05** The maintainer budget in `PLAN.md` G-C01 applies throughout. Every package added to
   the overlay is a permanent rebuild obligation.
+- **P2-C06** The MIT intent in `PLAN.md` G-D02 survives this phase, but three obligations attach to
+  it here, because this is the phase that ships binaries rather than configuration.
+  The overlay's own `APKBUILD` files can be MIT when written from scratch. An `APKBUILD` copied
+  from upstream `aports` cannot simply be relabelled: Alpine's `aports` declares no licence at its
+  root — there is no `COPYING` or `LICENSE` there, checked 2026-09-18 — so a copied recipe has no
+  stated terms to rely on. Write overlay recipes from scratch where practical, and record the
+  provenance where one is adapted. `P2-D04`'s RAUC build is the near-term case, since RAUC itself
+  is LGPL-2.1.
+  Every patch the overlay carries against GPL source is GPL, including kernel patches under
+  `linux-tundra`. This does not spread to the rest of the overlay; it means the patches are not
+  Tundra's to relicense.
+  The sharp one is **GPLv3 and signed images**, and it lands squarely on `P2-Q04`. GPLv3 section 6
+  requires that a "User Product" shipped with GPLv3 software include whatever installation
+  information a user needs to install modified versions and have them run. A verified root with a
+  signature chain the user cannot replace is exactly the arrangement that clause was written
+  about. This is not a reason to abandon verified boot, and it is not a problem at all if the
+  owner can enrol their own keys — which is the ordinary arrangement on PC hardware and the one
+  Tundra targets. It does mean the key-enrolment story is part of answering `P2-Q04` rather than a
+  detail to settle afterwards. Note that the kernel and BusyBox are GPL-2.0, which carries no such
+  clause; the exposure is whatever GPLv3 components end up in the image.
 
 ## Decisions
 

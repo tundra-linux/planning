@@ -49,6 +49,24 @@ nothing beneath it, and it cannot start until Phase 2 is shipping on its cadence
   index, and the collisions in the wider ecosystem — a MyAnimeList scrobbler, a C build system, the
   TundraNAT64 tool — are in different namespaces. Toyota holds TUNDRA for vehicles, which does not
   reach software. Register the domain and the GitHub org before announcing anything.
+- **G-D02** Tundra's own work is **MIT wherever it can be**, and `tundra-pilot` already is. The
+  intent is permissive: configuration, scripts, packaging recipes and anything written for this
+  project from scratch carry MIT, including the Phase 3 desktop if it is ever written.
+  What that reaches is narrower than it sounds, and the boundary is worth stating once rather than
+  rediscovering per package. Shipping a distribution is *aggregation*, not derivation: putting a
+  GPL program in the image does not relicense the image or the recipe that built it, which is why
+  every Linux distribution can hold a licence of its own. So MIT genuinely covers everything in
+  this project's repositories today.
+  Three things cross the line anyway, and they are obligations rather than licence changes. A
+  patch to GPL source is a derivative of that source and is GPL regardless of where it is stored.
+  Distributing GPL binaries carries a source-offer obligation, which for an image-based distro
+  means publishing the source for everything in the image and keeping it available for as long as
+  the image is offered — a hosting and bookkeeping cost under `G-C01`, not a legal risk. And
+  GPLv3's anti-tivoization terms attach to signed images on locked hardware, which is `P2-C06`.
+  The base is more permissive than the ecosystem's reputation suggests: musl is MIT and Alpine's
+  package tooling is permissive, so the musl choice already avoids glibc's LGPL entirely. The
+  unavoidable GPL components are the kernel, BusyBox (GPL-2.0), and the desktop stack. Read from
+  each project's own licence file on 2026-09-18.
 - **G-C01** Single maintainer, no funding, no CI fleet. Every decision that adds a package to the
   overlay adds a rebuild obligation forever, and every target added to the hardware matrix has to be
   requalified on each release. This constraint kills more soft forks than any technical problem in
