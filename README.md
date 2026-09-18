@@ -30,10 +30,16 @@ goes in one when it exists.
 
 ## Status
 
-Phase 1 is building. The pilot VM exists and `tundra-pilot` carries the artifact tree, the script
-corpus and the stock Plasma baseline it was captured from. The desktop design has not been driven
-through its task checklist, nothing has been applied to a clean install, and no decision anywhere
-here has survived contact with real hardware. Phases 2 and 3 are still design.
+Phase 1 is building, and further along than the other two by a distance. `tundra-pilot` carries the
+artifact tree and the script corpus, and all of it has been applied to the pilot VM: the package
+delta, the defaults, the Flatpak set, the shell, `doas` and the update mechanism. A freshly created
+account gets the intended panel, and every gate reachable without someone sitting at the machine
+passes.
+
+What is left needs a person or a second machine. The task checklist has never been run, so nobody
+has judged the design by using it. The virtualization gate needs a vSphere guest, because the
+development host runs locked virtualization-based security. And no decision anywhere here has
+survived contact with real hardware. Phases 2 and 3 are still design.
 
 The phases are not strictly sequential: `PHASE2.md` carries two Track 0 spikes — Plasma on
 Alpine under OpenRC, and the EROFS plus RAUC image pipeline — that are meant to run *during* Phase 1,
